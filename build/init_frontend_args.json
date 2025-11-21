@@ -1,0 +1,130 @@
+{
+    "instanceNum": 1,
+    "azID": "1",
+    "cpu": 500,
+    "memory": 500,
+    "image": "",
+    "version": "",
+    "clusterID": "cluster001",
+    "clusterName": "",
+    "regionName": "",
+    "nodeAffinity": "",
+    "alarmConfig": {
+      "enableAlarm": false,
+      "minInsStartInterval": 15,
+      "minInsCheckInterval": 15,
+      "alarmLogConfig": {
+        "filepath": "/opt/huawei/logs/alarms",
+        "level": "Info",
+        "tick": 0,
+        "first": 0,
+        "thereafter": 0,
+        "singlesize": 500,
+        "threshold": 3,
+        "disable": false
+      },
+      "xiangYunFourConfig": {
+        "site": "cn_dev_default",
+        "tenantID": "T014",
+        "applicationID": "com.huawei.cloud_enhance_device",
+        "serviceID": "com.huawei.hmscorecameracloudenhanceservice"
+      }
+    },
+    "http": {
+      "resptimeout": 5,
+      "workerInstanceReadTimeOut": 5,
+      "maxRequestBodySize": 6,
+      "serverReadTimeout": 0,
+      "serverWriteTimeout": 0,
+      "serverListenIP": "{faas_frontend_http_ip}",
+      "serverListenPort": {faas_frontend_http_port}
+    },
+    "businessType": 0,
+    "diskMonitorEnable": false,
+    "authenticationEnable": false,
+    "trafficLimitDisable": true,
+    "functionCapability": 1,
+    "retry": {
+      "instanceExceptionRetry": true
+    },
+    "invokeMaxRetryTimes": 5,
+    "rawStsConfig": {
+      "stsEnable": false,
+      "serverConfig": {
+        "domain": "",
+        "path": "/opt/huawei/certs/HMSClientCloudAccelerateService/HMSCaaSYuanRongWorker/HMSCaasYuanRongWorker.ini"
+      }
+    },
+    "dataSystemConfig": {
+      "uploadWriteMode": "NoneL2Cache",
+      "executeWriteMode": "NoneL2Cache",
+      "uploadTTLSec": 86400,
+      "executeTTLSec": 1800,
+      "timeoutMs": 60000
+    },
+    "slaQuota": 1000,
+    "scaleDownTime": 60000,
+    "burstScaleNum": 1000,
+    "leaseSpan": 5000,
+    "functionLimitRate": 5000,
+    "dockerRootPath": "/var/lib/docker",
+    "invokeMaxRetryTimes": 5,
+    "retry": {
+      "instanceExceptionRetry": true
+    },
+    "httpsConfig": {
+      "httpsEnable": {sslEnable},
+      "tlsProtocol": "TLSv1.2",
+      "tlsCiphers": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+      "sslBasePath": "{sslBasePath}",
+      "rootCAFile": "ca.crt",
+      "moduleCertFile": "module.crt",
+      "moduleKeyFile": "module.key",
+      "pwdFile": "cert_pwd",
+      "secretName": "https-secret",
+      "sslDecryptTool": "SCC"
+    },
+    "routerEtcd": {
+      "servers": [
+        "{etcdAddr}"
+      ],
+      "sslEnable": {sslEnable},
+      "user": "",
+      "password": "",
+      "useSecret": false,
+      "secretName": "etcd-client-secret",
+      "authType": "{etcdAuthType}",
+      "cafile": "{etcdCAFile}",
+      "certfile": "{etcdCertFile}",
+      "keyfile": "{etcdKeyFile}",
+      "passphraseFile": "{passphraseFile}",
+      "azPrefix": "{azPrefix}"
+    },
+    "metaEtcd": {
+      "servers": [
+        "{etcdAddr}"
+      ],
+      "sslEnable": {sslEnable},
+      "user": "",
+      "password": "",
+      "useSecret": false,
+      "secretName": "etcd-client-secret",
+      "authType": "{etcdAuthType}",
+      "cafile": "{etcdCAFile}",
+      "certfile": "{etcdCertFile}",
+      "keyfile": "{etcdKeyFile}",
+      "passphraseFile": "{passphraseFile}",
+      "azPrefix": "{azPrefix}"
+    },
+    "tlsConfig": {
+      "caContent": "",
+      "keyContent": "",
+      "certContent": ""
+    },
+    "sccConfig": {
+      "enable": {sccEnable},
+      "secretName": "scc-ks-secret",
+      "algorithm": "AES256_GCM",
+      "sccConfigPath": "{sccBasePath}"
+    }
+  }
