@@ -33,7 +33,8 @@ export CGO_ENABLED=1
 mkdir -p ${OUTPUT_DIR}
 # resolve missing go.sum entry
 go env -w "GOFLAGS"="-mod=mod"
-
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 # remove hard coded cert file in net/http
 [ -f "${TEST_CERT_PATH}" ] && rm -f "${TEST_CERT_PATH}"
 
@@ -110,6 +111,7 @@ cp -arf "${PROJECT_DIR}/build/system-function-config.yaml" "${OUTPUT_DIR}/templa
 cp -arf "${PROJECT_DIR}/build/faasfrontend-function-config.yaml" "${OUTPUT_DIR}/templates/faasfrontend-function-config.yaml"
 cp -arf "${PROJECT_DIR}/build/faasfrontend-function-meta.yaml" "${OUTPUT_DIR}/templates/faasfrontend-function-meta.yaml"
 cp -arf "${PROJECT_DIR}/build/fassfrontend-service.yaml" "${OUTPUT_DIR}/templates/fassfrontend-service.yaml"
+cp -arf "${PROJECT_DIR}/build/init_frontend_args.json" "${OUTPUT_DIR}"
 chmod -R 700 "${OUTPUT_DIR}"
 cd ${OUTPUT_DIR}/../../
 tar -czvf yr-frontend-${BUILD_VERSION}.tar.gz pattern
