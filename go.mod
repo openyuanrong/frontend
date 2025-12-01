@@ -51,7 +51,7 @@ replace (
 	google.golang.org/grpc => google.golang.org/grpc v1.67.0
 	google.golang.org/protobuf => google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
-	yuanrong.org/kernel/runtime => ../yuanrong-runtime/api/go
+	yuanrong.org/kernel/runtime => ../yuanrong/api/go
 	k8s.io/api => k8s.io/api v0.31.2
 	k8s.io/apimachinery => k8s.io/apimachinery v0.31.2
 	k8s.io/client-go => k8s.io/client-go v0.31.2
