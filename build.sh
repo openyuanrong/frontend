@@ -106,12 +106,16 @@ sed -i "${code_size_line} s@${code_size_old}@${code_size_new}@" "${TAR_OUT_DIR}/
 chmod -R 700 "${TAR_OUT_DIR}"
 
 cp -ar "${TAR_OUT_DIR}/"* "${OUTPUT_DIR}"
+cp -arf "${PROJECT_DIR}/build/executor-meta" "${OUTPUT_DIR}"
 mkdir -p "$OUTPUT_DIR/templates/"
 cp -arf "${PROJECT_DIR}/build/system-function-config.yaml" "${OUTPUT_DIR}/templates/system-function-config.yaml"
 cp -arf "${PROJECT_DIR}/build/faasfrontend-function-config.yaml" "${OUTPUT_DIR}/templates/faasfrontend-function-config.yaml"
 cp -arf "${PROJECT_DIR}/build/faasfrontend-function-meta.yaml" "${OUTPUT_DIR}/templates/faasfrontend-function-meta.yaml"
 cp -arf "${PROJECT_DIR}/build/fassfrontend-service.yaml" "${OUTPUT_DIR}/templates/fassfrontend-service.yaml"
 cp -arf "${PROJECT_DIR}/build/init_frontend_args.json" "${OUTPUT_DIR}"
+mkdir -p "${OUTPUT_DIR}/alias"
+cp -ar "${BASE_DIR}"/build/control_plane_alias.sh "${OUTPUT_DIR}/alias/control_plane_alias.sh"
+cp -ar "${BASE_DIR}"/build/runtime_manager_alias.sh "${OUTPUT_DIR}/alias/runtime_manager_alias.sh"
 chmod -R 700 "${OUTPUT_DIR}"
 cd ${OUTPUT_DIR}/../../
 tar -czvf yr-frontend-${BUILD_VERSION}.tar.gz pattern
