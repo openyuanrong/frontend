@@ -990,6 +990,14 @@ func (f *invokerLibruntimeMock) GetAsync(objectID string, cb api.GetAsyncCallbac
 	return
 }
 
+func (f *invokerLibruntimeMock) GetEvent(objectID string, cb api.GetEventCallback) {
+	return
+}
+
+func (f *invokerLibruntimeMock) DeleteGetEventCallback(objectID string) {
+	return
+}
+
 func (f *invokerLibruntimeMock) GetFormatLogger() api.FormatLogger {
 	return nil
 }
