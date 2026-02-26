@@ -1049,6 +1049,10 @@ func (f *invokerLibruntimeMock) IsDsHealth() bool {
 	return true
 }
 
+func (f *invokerLibruntimeMock) GetActiveMasterAddr() string {
+	return "mockMasterAddr"
+}
+
 func TestKVGet(t *testing.T) {
 	convey.Convey("TestKVGetLibruntime", t, func() {
 		keyNotFound := 1

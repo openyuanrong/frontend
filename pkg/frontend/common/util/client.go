@@ -78,6 +78,7 @@ type invokerLibruntime interface {
 	SetTenantID(tenantID string) error
 	IsHealth() bool
 	IsDsHealth() bool
+	GetActiveMasterAddr() string
 }
 
 var clientLibruntime invokerLibruntime
@@ -137,6 +138,7 @@ type Client interface {
 	KillByLibRt(instanceID string, signal int, payload []byte) (err error)
 	IsHealth() bool
 	IsDsHealth() bool
+	GetActiveMasterAddr() string
 }
 
 // NewClient return a client used to invoke other functions
@@ -202,7 +204,7 @@ func deepCopyArgs(args []*api.Arg, tenantID string) []api.Arg {
 func (c *defaultClient) Invoke(req InvokeRequest) ([]byte, error) {
 	log.GetLogger().Debugf("invoke by instanceId: %s", req.InstanceID)
 	funcMeta := api.FunctionMeta{FuncID: req.Function, Api: api.FaaSApi}
-	funcArgs := deepCopyArgs(req.Args, req.TenantID)
+	funcArgs := deepCopyArgs(req.Args, "")
 	invokeOpts := convertCommonInvokeOption(req)
 	invokeOpts.RetryTimes = req.RetryTimes
 	invokeOpts.ForceInvoke = req.ForceInvoke
@@ -303,6 +305,10 @@ func (c *defaultClient) handleEvent(objID string, sseChan *SSEChan, req InvokeRe
 			}
 		}
 	}
+}
+
+func (c *defaultClient) GetActiveMasterAddr() string {
+	return c.clientLibruntime.GetActiveMasterAddr()
 }
 
 func convertInvokeOption(req InvokeRequest) api.InvokeOptions {

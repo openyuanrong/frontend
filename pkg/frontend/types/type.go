@@ -143,6 +143,7 @@ type Config struct {
 	VerifyFilePath          string           `json:"verifyFilePath" valid:"optional"`
 	WiseCloudConfig         WiseCloudConfig  `json:"wiseCloudConfig" valid:"optional"`
 	IamConfig               IamConfig        `json:"iamConfig" valid:"optional"`
+	MetaServiceAddress      string           `json:"metaServiceAddress" valid:"optional"`
 	EnableEvent             bool             `json:"enableEvent" valid:"optional"`
 	WatchedConfigFilePath   string           `json:"watchedConfigFilePath" valid:"optional"`
 	AccessFaaSSchedulerType string           `json:"accessFaaSSchedulerType" valid:"optional"`
@@ -150,7 +151,8 @@ type Config struct {
 
 // IamConfig -
 type IamConfig struct {
-	Addr string `json:"addr"`
+	Addr                string `json:"addr"`
+	EnableFuncTokenAuth bool   `json:"enableFuncTokenAuth" valid:"optional"`
 }
 
 // WiseCloudConfig -
@@ -212,6 +214,8 @@ type FrontendHTTP struct {
 	MaxDataSystemMultiDataBodySize int    `json:"maxDataSystemMultiDataBodySize" valid:"optional"`
 	ServerListenPort               int    `json:"serverListenPort" valid:"optional"`
 	ServerListenIP                 string `json:"serverListenIP" valid:"optional"`
+	// PrometheusMetricsPort is the port for Prometheus metrics server
+	PrometheusMetricsPort int `json:"prometheusMetricsPort" valid:"optional"`
 }
 
 // TrafficLimitParams parameters of traffic limitation

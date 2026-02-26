@@ -20,6 +20,9 @@
 package api
 
 import (
+	"io/fs"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"frontend/pkg/common/constants"
@@ -27,12 +30,15 @@ import (
 	commonJob "frontend/pkg/common/job"
 	"frontend/pkg/frontend/api/app"
 	"frontend/pkg/frontend/api/datasystem"
-	"frontend/pkg/frontend/api/functionsystem"
+	frontend "frontend/pkg/frontend/api/functionsystem"
 	"frontend/pkg/frontend/api/job"
 	"frontend/pkg/frontend/api/lease"
-	"frontend/pkg/frontend/api/v1"
+	"frontend/pkg/frontend/api/metaservice"
+	v1 "frontend/pkg/frontend/api/v1"
 	"frontend/pkg/frontend/common"
 	"frontend/pkg/frontend/frontendsdkadapter/handler"
+	"frontend/pkg/frontend/middleware"
+	"frontend/pkg/frontend/webui"
 )
 
 const (
@@ -43,6 +49,7 @@ const (
 		common.FunctionUrnParam + "/sessions" + constants.DynamicRouterParamPrefix + "sessionId/interrupt"
 	urlDeleteSession = "/serverless/v1/functions/" + common.GinUrnParamMark +
 		common.FunctionUrnParam + "/sessions" + constants.DynamicRouterParamPrefix + "sessionId"
+	urlShortInvoke = "/:tenant-id/:namespace/:function/"
 	urlStreamSubscribe = "/serverless/v1/stream/subscribe"
 	urlGetHealthCheck  = "/healthz"
 	urlClusterHealthy  = "/serverless/v1/componentshealth"
@@ -83,9 +90,20 @@ const (
 
 // InitRoute -
 func InitRoute(r *gin.Engine) {
+	// Apply invoke preprocessing middleware to:
+	// 1. Mark invoke URLs for role-based authentication
+	// 2. Detect public functions and skip JWT authentication
+	r.Use(middleware.InvokePreprocessMiddleware())
+
+	// Apply global JWT authentication middleware with whitelist support
+	// For invoke URLs: allow RoleUser and RoleDeveloper
+	// For other URLs: only allow RoleDeveloper
+	r.Use(middleware.GlobalJWTAuthMiddleware())
+
 	r.GET(urlGetHealthCheck, v1.HealthzHandler)
-	r.GET(urlClusterHealthy, v1.ClusterHealthHandler)              // Health check
-	r.POST(urlPostInvoke, tracer.WrapGinHandler(v1.InvokeHandler)) // Invocation
+	r.GET(urlClusterHealthy, v1.ClusterHealthHandler)                    // Health check
+	r.POST(urlPostInvoke, tracer.WrapGinHandler(v1.InvokeHandler))       // Invocation
+	r.POST(urlShortInvoke, tracer.WrapGinHandler(v1.ShortInvokeHandler)) // Invocation
 	r.POST(urlInterruptSession, tracer.WrapGinHandler(v1.InterruptSessionHandler))
 	r.DELETE(urlDeleteSession, tracer.WrapGinHandler(v1.DeleteSessionHandler))
 	r.GET(urlStreamSubscribe, v1.SubscribeHandler) // Subscribe Stream
@@ -129,4 +147,25 @@ func InitRoute(r *gin.Engine) {
 		jobGroup.DELETE(commonJob.PathDeleteJobs, job.DeleteJobHandler)
 		jobGroup.POST(commonJob.PathStopJobs, job.StopJobHandler)
 	}
+
+	metaservice.RegisterFunctionRoutes(r)
+
+	// web terminal
+	terminalGroup := r.Group("/terminal")
+	{
+		terminalGroup.GET("", gin.WrapF(webui.HandleIndex))
+		terminalGroup.GET("/ws", gin.WrapF(webui.HandleWebSocket))
+		staticFS, _ := fs.Sub(webui.StaticFiles, "static")
+		terminalGroup.GET("/static/*filepath", gin.WrapH(http.StripPrefix("/terminal/static", http.FileServer(http.FS(staticFS)))))
+	}
+	r.GET("api/instances", gin.WrapF(webui.HandleInstances))
+
+	// Function invoke tool (requires authentication)
+	r.GET("/functions", gin.WrapF(webui.HandleInvokePage))
+
+	// API documentation page (no authentication required)
+	r.GET("/api-docs", gin.WrapF(webui.HandleAPIDoc))
+
+	// Welcome/introduction page (no authentication required)
+	r.GET("/", gin.WrapF(webui.HandleWelcome))
 }

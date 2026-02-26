@@ -37,8 +37,7 @@ type EtcdAuth interface {
 	GetEtcdConfig() (*clientv3.Config, error)
 }
 
-type noAuth struct {
-}
+type noAuth struct{}
 
 type tlsAuth struct {
 	caFile   string

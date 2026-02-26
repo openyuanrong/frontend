@@ -9,6 +9,12 @@
     "clusterName": "",
     "regionName": "",
     "nodeAffinity": "",
+    "defaultTenantLimitQuota": -1,
+    "iamConfig":{
+      "addr": "{iam_server_address}",
+      "enableFuncTokenAuth": {enable_func_token_auth}
+    },
+    "metaServiceAddress": "{meta_service_address}",
     "alarmConfig": {
       "enableAlarm": false,
       "minInsStartInterval": 15,
@@ -37,7 +43,8 @@
       "serverReadTimeout": 0,
       "serverWriteTimeout": 0,
       "serverListenIP": "{faas_frontend_http_ip}",
-      "serverListenPort": {faas_frontend_http_port}
+      "serverListenPort": {faas_frontend_http_port},
+      "prometheusMetricsPort": 8000
     },
     "businessType": 0,
     "diskMonitorEnable": false,
@@ -73,7 +80,7 @@
       "instanceExceptionRetry": true
     },
     "httpsConfig": {
-      "httpsEnable": {sslEnable},
+      "httpsEnable": {frontendSslEnable},
       "tlsProtocol": "TLSv1.2",
       "tlsCiphers": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
       "sslBasePath": "{sslBasePath}",
@@ -82,7 +89,8 @@
       "moduleKeyFile": "module.key",
       "pwdFile": "cert_pwd",
       "secretName": "https-secret",
-      "sslDecryptTool": "SCC"
+      "sslDecryptTool": "SCC",
+      "clientAuthType": "RequireAndVerifyClientCert"
     },
     "routerEtcd": {
       "servers": [
@@ -97,7 +105,7 @@
       "cafile": "{etcdCAFile}",
       "certfile": "{etcdCertFile}",
       "keyfile": "{etcdKeyFile}",
-      "passphraseFile": "{passphraseFile}",
+      "passphraseFile": "",
       "azPrefix": "{azPrefix}"
     },
     "metaEtcd": {
@@ -113,7 +121,7 @@
       "cafile": "{etcdCAFile}",
       "certfile": "{etcdCertFile}",
       "keyfile": "{etcdKeyFile}",
-      "passphraseFile": "{passphraseFile}",
+      "passphraseFile": "",
       "azPrefix": "{azPrefix}"
     },
     "tlsConfig": {

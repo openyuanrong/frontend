@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +40,7 @@ import (
 	"frontend/pkg/frontend/common/httputil"
 	"frontend/pkg/frontend/config"
 	frontendlog "frontend/pkg/frontend/log"
+	"frontend/pkg/frontend/metrics"
 	"frontend/pkg/frontend/middleware"
 	"frontend/pkg/frontend/responsehandler"
 	"frontend/pkg/frontend/stream"
@@ -67,11 +70,67 @@ import (
 // @Header       200  {string}  X-Invoke-Summary "本次调用摘要信息"
 // @Header       200  {string}  X-Log-Result "调用过程中产生日志"
 func InvokeHandler(ctx *gin.Context) {
+	invokeWrap(ctx, false)
+}
+
+// ShortInvokeHandler -
+// ShortInvokeHandler handles short invocation requests
+func ShortInvokeHandler(ctx *gin.Context) {
+	invokeWrap(ctx, true)
+}
+
+var metricsOnce sync.Once
+
+func initInvokeMetrics() {
+	metricsOnce.Do(func() {
+		// Register counter for function invocations with function name and http code
+		err := metrics.RegisterCounter("function_invocations_total", "Total number of function invocations", []string{"function_name", "http_code"})
+		if err != nil {
+			log.GetLogger().Warnf("failed to register function_invocations_total metric: %v", err)
+		}
+		// Register histogram for function invocation duration
+		err = metrics.RegisterHistogram("function_invocation_duration_seconds", "Function invocation duration in seconds", []string{"function_name"}, nil)
+		if err != nil {
+			log.GetLogger().Warnf("failed to register function_invocation_duration_seconds metric: %v", err)
+		}
+	})
+}
+
+func invokeWrap(ctx *gin.Context, isShortUrl bool) {
+	initInvokeMetrics()
+	invokeStart := time.Now()
+	var processCtx *types.InvokeProcessContext
 	traceID := httputil.InitTraceID(ctx)
 	logger := log.GetLogger().With(zap.Any("traceId", traceID))
 	logger.Infof("invoking handler receives one request")
+	// Use defer to ensure metrics are reported even if function returns early
+	defer func() {
+		invokeTotalTime := time.Since(invokeStart)
+		// Prepare metrics reporting
+		functionName := processCtx.FuncKey
+		if functionName == "" {
+			functionName = "unknown"
+		}
+		// Get http code from context
+		httpCode := processCtx.StatusCode
+		httpCodeStr := strconv.Itoa(httpCode)
 
-	processCtx, err := buildProcessContext(ctx, traceID)
+		// Report invocation count
+		if err := metrics.IncrementCounter("function_invocations_total", functionName, httpCodeStr); err != nil {
+			log.GetLogger().Debugf("failed to report function_invocations_total metric: %v", err)
+		}
+
+		// Report invocation duration
+		if err := metrics.ObserveHistogram("function_invocation_duration_seconds", invokeTotalTime.Seconds(), functionName); err != nil {
+			log.GetLogger().Debugf("failed to report function_invocation_duration_seconds metric: %v", err)
+		}
+	}()
+	var err error
+	if isShortUrl {
+		processCtx, err = buildShortProcessContext(ctx, traceID)
+	} else {
+		processCtx, err = buildProcessContext(ctx, traceID)
+	}
 	if err != nil {
 		logger.Errorf("failed to set processCtx req, error: %s", err.Error())
 		writeHTTPResponse(ctx, processCtx)
@@ -223,6 +282,52 @@ func (gw *GinWriter) ClientDisconnectChan() <-chan struct{} {
 	return gw.Context.Request.Context().Done()
 }
 
+func buildShortProcessContext(ctx *gin.Context, traceID string) (processCtx *types.InvokeProcessContext, err error) {
+	processCtx = types.CreateInvokeProcessContext()
+	processCtx.TraceID = traceID
+	processCtx.RequestID = traceID
+
+	var (
+		funcUrn  urnutils.FunctionURN
+		plainURN string
+	)
+	defer func() {
+		if err != nil {
+			processCtx.StatusCode = http.StatusBadRequest
+			responsehandler.SetErrorInContextWithDefault(processCtx, err, statuscode.FrontendStatusBadRequest,
+				err.Error())
+		}
+	}()
+	err = handleRequestBodyAndStream(ctx, processCtx, traceID)
+	if err != nil {
+		return
+	}
+	processCtx.ReqHeader = readHeaders(ctx.Request.Header)
+	processCtx.ReqPath = ctx.Request.URL.Path
+	processCtx.ReqMethod = ctx.Request.Method
+	processCtx.ReqQuery = ctx.Request.URL.RawQuery
+	tenantId := ctx.Param("tenant-id")
+	namespace := ctx.Param("namespace")
+	functionName := ctx.Param("function")
+	plainURN = urnutils.BuildFunctionShortURN(tenantId, namespace, functionName)
+	params := make(map[string]string)
+	for k, v := range processCtx.ReqHeader {
+		params[strings.ToLower(k)] = v
+	}
+	functionURN := aliasroute.GetAliases().GetFuncVersionURNWithParams(plainURN, params)
+	funcUrn, err = urnutils.GetFunctionInfo(functionURN)
+	if err != nil {
+		return
+	}
+	processCtx.FuncKey = urnutils.CombineFunctionKey(funcUrn.TenantID, funcUrn.FuncName, funcUrn.FuncVersion)
+	if config.GetConfig().BusinessType == constant.BusinessTypeFG {
+		if err = processContextForFG(ctx, processCtx, plainURN, funcUrn); err != nil {
+			return
+		}
+	}
+	return
+}
+
 func handleRequestBodyAndStream(ctx *gin.Context, processCtx *types.InvokeProcessContext, traceID string) error {
 	stream.BuildStreamContext(ctx, processCtx)
 	if stream.IsHTTPUploadStream(ctx.Request) {
@@ -292,7 +397,8 @@ func extractFunctionURN(c *gin.Context, reqHeaders map[string]string) (urnutils.
 }
 
 func processContextForFG(c *gin.Context, processCtx *types.InvokeProcessContext,
-	plainURN string, functionInfo urnutils.FunctionURN) error {
+	plainURN string, functionInfo urnutils.FunctionURN,
+) error {
 	anonymizeURN := urnutils.AnonymizeTenantURN(plainURN)
 
 	log.GetLogger().Debugf("request URN is coming: %s, alias: %s traceID: %s",
