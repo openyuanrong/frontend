@@ -101,10 +101,6 @@ func (im *Manager) ClearFuncLeasePools(funcKey string) {
 // AcquireInstance -
 func (im *Manager) AcquireInstance(ctx *types.InvokeProcessContext, funcSpec *commontypes.FuncSpec,
 	logger api.FormatLogger) (*commontypes.InstanceAllocationInfo, snerror.SNError) {
-	if funcSpec.InstanceMetaData.MaxInstance == 0 {
-		return nil, snerror.New(statuscode.ReachMaxInstancesCode, fmt.Sprintf("%s,%d",
-			statuscode.ReachMaxInstancesErrMsg, funcSpec.InstanceMetaData.MaxInstance))
-	}
 	im.Lock()
 	funcKeyLeasePools, ok := im.globalFuncKeyLeasePools[ctx.FuncKey]
 	if !ok {
@@ -240,9 +236,7 @@ func (flps *FuncKeyLeasePools) acquireInstance(option *commontypes.AcquireOption
 		flps.RLock()
 	}
 	flps.RUnlock()
-	leasePool.pendingAcquire.Add(1)
 	lease, err := leasePool.acquireInstanceLease(option)
-	leasePool.pendingAcquire.Add(-1)
 	if err != nil {
 		return nil, err
 	}
@@ -541,19 +535,19 @@ func (flps *FuncKeyLeasePools) processErrBatchResponse(batch *BatchRetainLeaseIn
 
 // LeasePool stores instance leases
 type LeasePool struct {
-	funcKey        string
-	invokeLabel    string
-	poolLabel      string
-	invokeTag      map[string]string
-	session        *commontypes.InstanceSessionConfig
-	idleLeaseList  *queue.FifoQueue
-	leaseMap       map[string]*InstanceLease
-	pendingAcquire atomic.Int32
-	resSpecStr     string
-	stopCh         chan struct{}
+	funcKey       string
+	invokeLabel   string
+	poolLabel     string
+	invokeTag     map[string]string
+	session       *commontypes.InstanceSessionConfig
+	idleLeaseList *queue.FifoQueue
+	leaseMap      map[string]*InstanceLease
+	resSpecStr    string
+	stopCh        chan struct{}
 	sync.RWMutex
-	logger       api.FormatLogger
-	leasePoolKey string
+	logger        api.FormatLogger
+	leasePoolKey  string
+	inFlightCount atomic.Int32
 }
 
 func identityFunc(obj interface{}) string {
@@ -575,13 +569,14 @@ func newInstanceLeasePool(funcKey string, option *commontypes.AcquireOption) *Le
 		leaseMap:      make(map[string]*InstanceLease, defaultMapSize),
 		stopCh:        make(chan struct{}),
 		logger:        log.GetLogger().With(zap.Any("poolKey", getPoolKey(funcKey, option))),
+		inFlightCount: atomic.Int32{},
 	}
 }
 
 func (lp *LeasePool) empty() bool {
 	lp.RLock()
 	defer lp.RUnlock()
-	return len(lp.leaseMap) == 0 && lp.pendingAcquire.Load() == 0
+	return len(lp.leaseMap) == 0 && lp.inFlightCount.Load() == 0
 }
 
 func (ip *LeasePool) acquireHandler(funcKey string, option *commontypes.AcquireOption) (*InstanceLease,
@@ -775,9 +770,11 @@ func (ip *LeasePool) acquireInstanceLease(option *commontypes.AcquireOption) (*I
 		return lease, nil
 	}
 
+	ip.inFlightCount.Add(1)
 	lease, snError := ip.acquireHandler(ip.funcKey, option)
 
 	if snError != nil {
+		ip.inFlightCount.Add(-1)
 		return nil, snError
 	}
 	lease.claim()
@@ -785,6 +782,7 @@ func (ip *LeasePool) acquireInstanceLease(option *commontypes.AcquireOption) (*I
 	_, exist := ip.leaseMap[lease.ThreadID]
 	ip.RUnlock()
 	if exist {
+		ip.inFlightCount.Add(-1)
 		log.GetLogger().Errorf("acquired lease %s already exist for function %s traceID %s", lease.ThreadID,
 			ip.funcKey, option.TraceID)
 		// acquired a repeated lease, should acquire a new lease
@@ -792,6 +790,7 @@ func (ip *LeasePool) acquireInstanceLease(option *commontypes.AcquireOption) (*I
 	}
 	ip.Lock()
 	ip.leaseMap[lease.ThreadID] = lease
+	ip.inFlightCount.Add(-1)
 	ip.Unlock()
 	if leaseCanReuse(lease) {
 		go ip.handleLeaseExpiredLoop(lease)

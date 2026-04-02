@@ -55,9 +55,6 @@ type pwdAuth struct {
 // GetEtcdAuthType etcd authentication type
 func GetEtcdAuthType(etcdConfig EtcdConfig) EtcdAuth {
 	if etcdConfig.SslEnable {
-		if os.Getenv(sts.EnvSTSEnable) == "true" {
-			return &tlsAuth{}
-		}
 		return &tlsAuth{
 			caFile:   etcdConfig.CaFile,
 			certFile: etcdConfig.CertFile,

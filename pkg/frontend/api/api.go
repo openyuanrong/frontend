@@ -29,6 +29,7 @@ import (
 	"frontend/pkg/common/faas_common/tracer"
 	commonJob "frontend/pkg/common/job"
 	"frontend/pkg/frontend/api/app"
+	"frontend/pkg/frontend/api/auth"
 	"frontend/pkg/frontend/api/datasystem"
 	frontend "frontend/pkg/frontend/api/functionsystem"
 	"frontend/pkg/frontend/api/job"
@@ -36,6 +37,7 @@ import (
 	"frontend/pkg/frontend/api/metaservice"
 	v1 "frontend/pkg/frontend/api/v1"
 	"frontend/pkg/frontend/common"
+	"frontend/pkg/frontend/config"
 	"frontend/pkg/frontend/frontendsdkadapter/handler"
 	"frontend/pkg/frontend/middleware"
 	"frontend/pkg/frontend/webui"
@@ -45,14 +47,12 @@ const (
 	// naming convention: url + method + description
 	urlPostInvoke = "/serverless/v1/functions/" + common.GinUrnParamMark +
 		common.FunctionUrnParam + "/invocations"
-	urlInterruptSession = "/serverless/v1/functions/" + common.GinUrnParamMark +
-		common.FunctionUrnParam + "/sessions" + constants.DynamicRouterParamPrefix + "sessionId/interrupt"
-	urlDeleteSession = "/serverless/v1/functions/" + common.GinUrnParamMark +
-		common.FunctionUrnParam + "/sessions" + constants.DynamicRouterParamPrefix + "sessionId"
-	urlShortInvoke = "/:tenant-id/:namespace/:function/"
+	urlShortInvoke     = "/invocations/:tenant-id/:namespace/:function/"
+	urlShortInvokeOld  = "/:tenant-id/:namespace/:function/"
 	urlStreamSubscribe = "/serverless/v1/stream/subscribe"
 	urlGetHealthCheck  = "/healthz"
 	urlClusterHealthy  = "/serverless/v1/componentshealth"
+	urlGetAsyncResult  = "/serverless/v1/functions/async-results/:request-id"
 	// url to faasmanager
 	urlLease          = "/client/v1/lease"
 	urlLeaseKeepAlive = "/client/v1/lease/keepalive"
@@ -101,21 +101,21 @@ func InitRoute(r *gin.Engine) {
 	r.Use(middleware.GlobalJWTAuthMiddleware())
 
 	r.GET(urlGetHealthCheck, v1.HealthzHandler)
-	r.GET(urlClusterHealthy, v1.ClusterHealthHandler)                    // Health check
-	r.POST(urlPostInvoke, tracer.WrapGinHandler(v1.InvokeHandler))       // Invocation
-	r.POST(urlShortInvoke, tracer.WrapGinHandler(v1.ShortInvokeHandler)) // Invocation
-	r.POST(urlInterruptSession, tracer.WrapGinHandler(v1.InterruptSessionHandler))
-	r.DELETE(urlDeleteSession, tracer.WrapGinHandler(v1.DeleteSessionHandler))
-	r.GET(urlStreamSubscribe, v1.SubscribeHandler) // Subscribe Stream
+	r.GET(urlClusterHealthy, v1.ClusterHealthHandler)                       // Health check
+	r.POST(urlPostInvoke, tracer.WrapGinHandler(v1.InvokeHandler))          // Invocation
+	r.POST(urlShortInvoke, tracer.WrapGinHandler(v1.ShortInvokeHandler))    // Invocation
+	r.POST(urlShortInvokeOld, tracer.WrapGinHandler(v1.ShortInvokeHandler)) // Deprecated short invocation (backward compatibility)
+	r.GET(urlGetAsyncResult, v1.GetAsyncResultHandler)                      // Async invocation result
+	r.GET(urlStreamSubscribe, v1.SubscribeHandler)                          // Subscribe Stream
 	r.PUT(urlLease, lease.NewLeaseHandler)
 	r.DELETE(urlLease, lease.DelLeaseHandler)
 	r.POST(urlLeaseKeepAlive, lease.KeepAliveHandler)
-	r.POST(urlPreCreate, frontend.CreateHandler)
-	r.POST(urlPreInvoke, frontend.InvokeHandler)
-	r.POST(urlPreKill, frontend.KillHandler)
-	r.POST(urlCreate, frontend.CreateHandler)
-	r.POST(urlInvoke, frontend.InvokeHandler)
-	r.POST(urlKill, frontend.KillHandler)
+	r.POST(urlPreCreate, tracer.WrapGinHandler(frontend.CreateHandler))
+	r.POST(urlPreInvoke, tracer.WrapGinHandler(frontend.InvokeHandler))
+	r.POST(urlPreKill, tracer.WrapGinHandler(frontend.KillHandler))
+	r.POST(urlCreate, tracer.WrapGinHandler(frontend.CreateHandler))
+	r.POST(urlInvoke, tracer.WrapGinHandler(frontend.InvokeHandler))
+	r.POST(urlKill, tracer.WrapGinHandler(frontend.KillHandler))
 	r.POST(urlPut, datasystem.PutHandler)
 	r.POST(urlGet, datasystem.GetHandler)
 	r.POST(urlIncreaseRef, datasystem.IncreaseRefHandler)
@@ -149,6 +149,24 @@ func InitRoute(r *gin.Engine) {
 	}
 
 	metaservice.RegisterFunctionRoutes(r)
+
+	// Auth routes for Keycloak integration (via iam-server)
+	iamConfig := config.GetConfig().IamConfig
+	authHandler := auth.NewHandler(iamConfig.Addr)
+	authGroup := r.Group("/auth")
+	{
+		authGroup.GET("/login-page", authHandler.LoginPageHandler)
+		authGroup.GET("/register-page", authHandler.RegisterPageHandler)
+		authGroup.GET("/token-page", authHandler.TokenPageHandler)
+		authGroup.GET("/token-exchange-page", authHandler.TokenExchangePageHandler)
+		authGroup.GET("/login", authHandler.LoginHandler)
+		authGroup.GET("/register", authHandler.RegisterHandler)
+		authGroup.GET("/callback", authHandler.CallbackHandler)
+		authGroup.POST("/logout", authHandler.LogoutHandler)
+		authGroup.POST("/token/direct", authHandler.DirectTokenHandler)
+		authGroup.POST("/token/exchange", authHandler.TokenExchangeHandler)
+		authGroup.GET("/user", authHandler.UserHandler)
+	}
 
 	// web terminal
 	terminalGroup := r.Group("/terminal")

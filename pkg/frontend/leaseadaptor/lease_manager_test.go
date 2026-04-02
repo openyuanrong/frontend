@@ -74,44 +74,6 @@ func TestInstanceLeasePool_releaseInstanceLease(t *testing.T) {
 	})
 }
 
-func TestLeasePool_empty(t *testing.T) {
-	convey.Convey("empty lease pool should respect pending acquire", t, func() {
-		op := &commType.AcquireOption{
-			TraceID: "123456",
-		}
-		pool := newInstanceLeasePool("func1", op)
-		convey.So(pool.empty(), convey.ShouldBeTrue)
-
-		pool.pendingAcquire.Add(1)
-		convey.So(pool.empty(), convey.ShouldBeFalse)
-
-		pool.pendingAcquire.Add(-1)
-		convey.So(pool.empty(), convey.ShouldBeTrue)
-	})
-}
-
-func TestFuncKeyLeasePools_clearEmptyLeasePool_pendingAcquire(t *testing.T) {
-	convey.Convey("clearEmptyLeasePool should keep pool with pending acquire", t, func() {
-		op := &commType.AcquireOption{
-			TraceID: "123456",
-		}
-		pool := newInstanceLeasePool("func1", op)
-		pool.pendingAcquire.Add(1)
-		poolKey := getPoolKey("func1", op)
-
-		flps := &FuncKeyLeasePools{
-			leasePools: map[string]*LeasePool{
-				poolKey: pool,
-			},
-		}
-
-		flps.clearEmptyLeasePool()
-
-		_, exists := flps.leasePools[poolKey]
-		convey.So(exists, convey.ShouldBeTrue)
-	})
-}
-
 func TestInstanceManager_ReleaseInstanceAllocation(t *testing.T) {
 	convey.Convey("release instance allocation test", t, func() {
 		convey.Convey("release error", func() {
@@ -202,19 +164,10 @@ func TestInstanceManager_AcquireInstance(t *testing.T) {
 				}).Reset()
 			info, err := im.AcquireInstance(&types.InvokeProcessContext{
 				FuncKey: "test-func",
-			}, &commType.FuncSpec{InstanceMetaData: commType.InstanceMetaData{MaxInstance: 5}}, log.GetLogger())
+			}, &commType.FuncSpec{}, log.GetLogger())
 			convey.ShouldBeNil(err)
 			convey.ShouldEqual(info.FuncKey, "test-func")
 			convey.ShouldEqual(info.ThreadID, "test-lease-1")
-		})
-		convey.Convey("acquire instance reach max instance 0", func() {
-			im := GetInstanceManager()
-			info, err := im.AcquireInstance(&types.InvokeProcessContext{
-				FuncKey: "test-func",
-			}, &commType.FuncSpec{InstanceMetaData: commType.InstanceMetaData{MaxInstance: 0}}, log.GetLogger())
-			convey.ShouldBeNil(err)
-			convey.ShouldBeNil(info)
-			convey.ShouldEqual(err.Error(), "acquire instance reach max instance 0")
 		})
 	})
 }
@@ -972,5 +925,27 @@ func Test_LeaseCanReuse(t *testing.T) {
 		convey.ShouldBeFalse(leaseCanReuse(lease))
 		lease.LeaseInterval = 10
 		convey.ShouldBeTrue(leaseCanReuse(lease))
+	})
+}
+
+func TestLeasePool_EmptyWithInFlightCount(t *testing.T) {
+	convey.Convey("test lease pool empty considering inFlightCount", t, func() {
+		op := &commType.AcquireOption{}
+		convey.Convey("empty lease map and no inflight", func() {
+			pool := newInstanceLeasePool("func_test", op)
+			convey.So(pool.empty(), convey.ShouldBeTrue)
+		})
+
+		convey.Convey("empty lease map but with inflight", func() {
+			pool := newInstanceLeasePool("func_test", op)
+			pool.inFlightCount.Add(1)
+			convey.So(pool.empty(), convey.ShouldBeFalse)
+		})
+
+		convey.Convey("has lease but no inflight", func() {
+			pool := newInstanceLeasePool("func_test", op)
+			pool.leaseMap["fake_lease"] = &InstanceLease{}
+			convey.So(pool.empty(), convey.ShouldBeFalse)
+		})
 	})
 }

@@ -187,7 +187,10 @@ func InitTraceID(ctx *gin.Context) string {
 	if config.GetConfig().BusinessType == constant.BusinessTypeWiseCloud {
 		traceID = ctx.Request.Header.Get(constant.CaaSHeaderTraceID)
 	} else {
-		traceID = ctx.Request.Header.Get(constant.HeaderRequestID)
+		traceID = ctx.Request.Header.Get(constant.HeaderTraceID)
+		if traceID == "" {
+			traceID = ctx.Request.Header.Get(constant.HeaderRequestID)
+		}
 	}
 	switch {
 	case traceID == "":
@@ -398,21 +401,6 @@ func AddAuthorizationHeaderForFG(proxyReq *fasthttp.Request) {
 		config.GetConfig().LocalAuth.SKey, httpconstant.AppID, config.GetConfig().LocalAuth.Duration)
 	proxyReq.Header.Set(constant.HeaderAuthTimestamp, timestamp)
 	proxyReq.Header.Set(constant.HeaderAuthorization, authorization)
-}
-
-// SignForSchedulerWithSts -
-func SignForSchedulerWithSts(req *fasthttp.Request) error {
-	if !config.GetConfig().RawStsConfig.StsEnable {
-		return nil
-	}
-	if config.GetConfig() == nil || config.GetConfig().RawStsConfig.SensitiveConfigs.Auth.AccessKey == "" {
-		return fmt.Errorf("sts accessKey is empty")
-	}
-	if config.GetConfig().RawStsConfig.SensitiveConfigs.Auth.SecretKey == "" {
-		return fmt.Errorf("sts secretKey is empty")
-	}
-	return localauth.SignWithHmacSha256(req, config.GetConfig().RawStsConfig.SensitiveConfigs.Auth.AccessKey,
-		config.GetConfig().RawStsConfig.SensitiveConfigs.Auth.SecretKey)
 }
 
 // ReadLimitedBody -

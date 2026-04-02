@@ -31,8 +31,6 @@ import (
 
 	"frontend/pkg/common/faas_common/constant"
 	"frontend/pkg/common/faas_common/logger/log"
-	"frontend/pkg/common/faas_common/snerror"
-	"frontend/pkg/common/faas_common/statuscode"
 	"frontend/pkg/common/faas_common/tls"
 	"frontend/pkg/common/faas_common/types"
 	"frontend/pkg/frontend/common/httpconstant"
@@ -41,10 +39,9 @@ import (
 )
 
 const (
-	releaseAction      = "release"
-	batchRetainAction  = "batchRetain"
-	querySessionAction = "querySession"
-	defaultTimeout     = 3
+	releaseAction     = "release"
+	batchRetainAction = "batchRetain"
+	defaultTimeout    = 3
 )
 
 func createAcquireArgs(option *types.AcquireOption, funcKey string) ([]*api.Arg, error) {
@@ -141,7 +138,8 @@ func createBatchRetainArgs(batch *BatchRetainLeaseInfos, traceId string) ([]*api
 }
 
 func doAcquireInvoke(option *types.AcquireOption, ip string, funcKey string, timeout int64) (
-	*types.InstanceResponse, error) {
+	*types.InstanceResponse, error,
+) {
 	args, err := createAcquireArgs(option, funcKey)
 	if err != nil {
 		return nil, err
@@ -150,7 +148,7 @@ func doAcquireInvoke(option *types.AcquireOption, ip string, funcKey string, tim
 	defer fasthttp.ReleaseRequest(req)
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)
-	err = prepareSchedulerRequest(req, ip, args, option.TraceID)
+	err = prepareSchedulerRequest(req, ip, args, option.TraceID, option.TraceParent)
 	if err != nil {
 		return nil, err
 	}
@@ -167,78 +165,6 @@ func doAcquireInvoke(option *types.AcquireOption, ip string, funcKey string, tim
 		return nil, fmt.Errorf("failed to marshal instance response error %s", err.Error())
 	}
 	return instanceResponse, nil
-}
-
-func createQuerySessionArgs(sessionID, traceID, funcKey string) ([]*api.Arg, error) {
-	if sessionID == "" {
-		return nil, fmt.Errorf("sessionID is empty")
-	}
-
-	instanceRequirement := make(map[string][]byte, 1)
-	sessionData, err := json.Marshal(&types.InstanceSessionConfig{
-		SessionID:   sessionID,
-		SessionTTL:  0,
-		Concurrency: 1,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("marshal query session config failed: %s", err.Error())
-	}
-	instanceRequirement[constant.InstanceSessionConfig] = sessionData
-
-	extraData, err := json.Marshal(instanceRequirement)
-	if err != nil {
-		return nil, fmt.Errorf("marshal query session extraData failed: %s", err.Error())
-	}
-
-	return []*api.Arg{
-		{Type: api.Value, Data: []byte(fmt.Sprintf("%s#%s", querySessionAction, funcKey))},
-		{Type: api.Value, Data: extraData},
-		{Type: api.Value, Data: []byte(traceID)},
-	}, nil
-}
-
-func doQuerySessionInvoke(sessionID, ip string, funcKey string, timeout int64, traceID string) (
-	*types.InstanceResponse, error) {
-	args, err := createQuerySessionArgs(sessionID, traceID, funcKey)
-	if err != nil {
-		return nil, err
-	}
-	req := fasthttp.AcquireRequest()
-	defer fasthttp.ReleaseRequest(req)
-	resp := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseResponse(resp)
-	if err = prepareSchedulerRequest(req, ip, args, traceID); err != nil {
-		return nil, err
-	}
-	if timeout <= 0 {
-		timeout = defaultTimeout
-	}
-	if err = requestScheduler(req, resp, timeout); err != nil {
-		return nil, err
-	}
-	instanceResponse := &types.InstanceResponse{}
-	if err = json.Unmarshal(resp.Body(), instanceResponse); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal query session response error %s", err.Error())
-	}
-	return instanceResponse, nil
-}
-
-// QuerySession queries the scheduler for the instance currently bound to the session.
-func QuerySession(funcKey, sessionID, traceID string) (*types.InstanceAllocationInfo, snerror.SNError) {
-	logger := log.GetLogger().With(zap.Any("funcKey", funcKey), zap.Any("sessionID", sessionID), zap.Any("traceID", traceID))
-	schedulerInfo, err := schedulerproxy.Proxy.Get(funcKey, logger)
-	if err != nil {
-		return nil, snerror.New(statuscode.ErrAllSchedulerUnavailable, err.Error())
-	}
-
-	queryResponse, err := doQuerySessionInvoke(sessionID, schedulerInfo.InstanceInfo.Address, funcKey, defaultTimeout, traceID)
-	if err != nil {
-		return nil, snerror.NewWithError(statuscode.FrontendStatusInternalError, err)
-	}
-	if queryResponse.ErrorCode != constant.InsReqSuccessCode {
-		return nil, snerror.New(queryResponse.ErrorCode, queryResponse.ErrorMessage)
-	}
-	return &queryResponse.InstanceAllocationInfo, nil
 }
 
 // 不用关心是否成功
@@ -258,7 +184,7 @@ func doReleaseInvoke(funcKey string, leaseId string, option *types.AcquireOption
 	defer fasthttp.ReleaseRequest(req)
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)
-	err = prepareSchedulerRequest(req, schedulerInfo.InstanceInfo.Address, args, option.TraceID)
+	err = prepareSchedulerRequest(req, schedulerInfo.InstanceInfo.Address, args, option.TraceID, option.TraceParent)
 	if err != nil {
 		logger.Warnf("prepare scheduler request failed,, abort release err: %s", err.Error())
 		return
@@ -279,7 +205,7 @@ func doBatchRetainInvoke(batch *BatchRetainLeaseInfos, traceId string) (*types.B
 	defer fasthttp.ReleaseRequest(req)
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)
-	err = prepareSchedulerRequest(req, batch.SchedulerAddress, args, traceId)
+	err = prepareSchedulerRequest(req, batch.SchedulerAddress, args, traceId, "")
 	if err != nil {
 		logger.Errorf("prepare scheduler request failed, err: %s", err.Error())
 		return nil, err
@@ -297,13 +223,17 @@ func doBatchRetainInvoke(batch *BatchRetainLeaseInfos, traceId string) (*types.B
 }
 
 func prepareSchedulerRequest(schedulerReq *fasthttp.Request, dstHost string,
-	args []*api.Arg, traceID string) error {
+	args []*api.Arg, traceID string, traceParent string,
+) error {
 	schedulerReq.SetRequestURI(callSchedulerPath)
 	schedulerReq.Header.SetMethod(http.MethodPost)
 	schedulerReq.Header.ResetConnectionClose()
 	schedulerReq.SetHost(dstHost)
 	schedulerReq.URI().SetScheme(tls.GetURLScheme(false))
 	schedulerReq.Header.Set(constant.HeaderTraceID, traceID)
+	if traceParent != "" {
+		schedulerReq.Header.Set(constant.HeaderTraceParent, traceParent)
+	}
 	argsData, err := json.Marshal(args)
 	if err != nil {
 		return err

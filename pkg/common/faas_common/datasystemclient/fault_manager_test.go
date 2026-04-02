@@ -18,13 +18,10 @@ package datasystemclient
 
 import (
 	"os"
-	"sync/atomic"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
-
-	mockUtils "frontend/pkg/common/faas_common/utils"
 )
 
 func TestIsStatusReady(t *testing.T) {
@@ -56,9 +53,6 @@ func TestLocalDataSystemStatusCacheGetLocalDataSystemStatus(t *testing.T) {
 
 func TestLocalDataSystemStatusCacheSetLocalDataSystemStatus(t *testing.T) {
 	convey.Convey("test *LocalDataSystemStatusCache SetLocalDataSystemStatus", t, func() {
-		defer gomonkey.ApplyFunc(dataSystemHealthCheck, func() {
-			return
-		}).Reset()
 		var dataSystemStatusCache LocalDataSystemStatusCache
 		convey.Convey("test set dataSystem status, when NODE_IP is empty", func() {
 			dataSystemStatusCache.SetLocalDataSystemStatus("", dataSystemStatusReady)
@@ -86,30 +80,19 @@ func TestLocalDataSystemStatusCacheSetLocalDataSystemStatus(t *testing.T) {
 func TestIsLocalDataSystemStatusReady(t *testing.T) {
 	convey.Convey("test IsLocalDataSystemStatusReady", t, func() {
 		original := localDataSystemStatusCache.status
-		originalEtcdStatusReady := etcdStatusReady.Load()
-		originalHealthCheckResult := healthCheckResult.Load()
 		defer func() {
 			localDataSystemStatusCache.status = original
-			etcdStatusReady.Store(originalEtcdStatusReady)
-			healthCheckResult.Store(originalHealthCheckResult)
 		}()
 		convey.Convey("local dataSystem status is ready", func() {
-			atomic.SwapInt32(&readinessFailureThreshold, 0)
 			localDataSystemStatusCache.status = dataSystemStatusReady
-			etcdStatusReady.Store(true)
-			healthCheckResult.Store(true)
 			result := IsLocalDataSystemStatusReady()
 			convey.So(result, convey.ShouldBeTrue)
-			convey.So(atomic.LoadInt32(&readinessFailureThreshold), convey.ShouldEqual, int32(0))
 		})
 
 		convey.Convey("local dataSystem status is not ready", func() {
-			atomic.SwapInt32(&readinessFailureThreshold, 0)
 			localDataSystemStatusCache.status = dataSystemStatusExiting
-			healthCheckResult.Store(false)
 			result := IsLocalDataSystemStatusReady()
 			convey.So(result, convey.ShouldBeFalse)
-			convey.So(atomic.LoadInt32(&readinessFailureThreshold), convey.ShouldEqual, int32(1))
 		})
 	})
 }
@@ -137,14 +120,18 @@ func TestIsShutdownFronted(t *testing.T) {
 			convey.So(result, convey.ShouldBeFalse)
 		})
 
-		convey.Convey("when readiness failure num is not more than failureThreshold, skip shutdown", func() {
-			atomic.SwapInt32(&readinessFailureThreshold, failureThreshold)
+		convey.Convey("when dataSystem status is ready, skip shutdown", func() {
+			defer gomonkey.ApplyMethodFunc(&LocalDataSystemStatusCache{}, "GetLocalDataSystemStatus", func() string {
+				return dataSystemStatusReady
+			}).Reset()
 			result := isShutdownFronted()
 			convey.So(result, convey.ShouldBeFalse)
 		})
 
-		convey.Convey("when readiness failure num is more than failureThreshold", func() {
-			atomic.SwapInt32(&readinessFailureThreshold, failureThreshold+1)
+		convey.Convey("when dataSystem status is exiting, skip shutdown", func() {
+			defer gomonkey.ApplyMethodFunc(&LocalDataSystemStatusCache{}, "GetLocalDataSystemStatus", func() string {
+				return dataSystemStatusExiting
+			}).Reset()
 			result := isShutdownFronted()
 			convey.So(result, convey.ShouldBeTrue)
 		})
@@ -158,23 +145,6 @@ func TestDestroy(t *testing.T) {
 				return nil
 			}).Reset()
 			destroy()
-			convey.So("", convey.ShouldBeEmpty)
-		})
-	})
-}
-
-func TestDataSystemHealthCheck(t *testing.T) {
-	convey.Convey("Test DataSystemHealthCheck", t, func() {
-		defer gomonkey.ApplyFunc(destroy, func() {
-			return
-		}).Reset()
-		localClientLibruntime = &mockUtils.FakeLibruntimeSdkClient{}
-		convey.Convey("when streamEnable is false", func() {
-			SetStreamEnable(false)
-			defer gomonkey.ApplyMethodFunc(localClientLibruntime, "IsDsHealth", func() bool {
-				return false
-			}).Reset()
-			dataSystemHealthCheck()
 			convey.So("", convey.ShouldBeEmpty)
 		})
 	})

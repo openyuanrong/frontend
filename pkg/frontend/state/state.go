@@ -79,11 +79,11 @@ func GetState() FrontendState {
 
 // GetStateByte is used to obtain the local state
 func GetStateByte() ([]byte, error) {
-	if frontendHandlerQueue == nil {
-		return nil, fmt.Errorf("frontendHandlerQueue is not initialized")
-	}
 	frontendStateLock.RLock()
 	defer frontendStateLock.RUnlock()
+	if frontendHandlerQueue == nil {
+		return json.Marshal(frontendState)
+	}
 	stateBytes, err := frontendHandlerQueue.GetState(stateKey)
 	if err != nil {
 		return nil, err

@@ -86,15 +86,15 @@ func (f *fakeClient) Invoke(req util.InvokeRequest) ([]byte, error) {
 	panic("implement me")
 }
 
-func (f *fakeClient) CreateInstanceRaw(createReq []byte) ([]byte, error) {
+func (f *fakeClient) CreateInstanceRaw(createReq []byte, option api.RawRequestOption) ([]byte, error) {
 	return nil, nil
 }
 
-func (f *fakeClient) InvokeInstanceRaw(invokeReq []byte) ([]byte, error) {
+func (f *fakeClient) InvokeInstanceRaw(invokeReq []byte, option api.RawRequestOption) ([]byte, error) {
 	return nil, nil
 }
 
-func (f *fakeClient) KillRaw(killReq []byte) ([]byte, error) {
+func (f *fakeClient) KillRaw(killReq []byte, option api.RawRequestOption) ([]byte, error) {
 	return nil, nil
 }
 
@@ -154,15 +154,15 @@ func (c *fakeFailedClient) IsLibruntime() bool {
 	return false
 }
 
-func (c *fakeFailedClient) CreateInstanceRaw(createReq []byte) ([]byte, error) {
+func (c *fakeFailedClient) CreateInstanceRaw(createReq []byte, option api.RawRequestOption) ([]byte, error) {
 	return nil, nil
 }
 
-func (c *fakeFailedClient) InvokeInstanceRaw(invokeReq []byte) ([]byte, error) {
+func (c *fakeFailedClient) InvokeInstanceRaw(invokeReq []byte, option api.RawRequestOption) ([]byte, error) {
 	return nil, nil
 }
 
-func (c *fakeFailedClient) KillRaw(killReq []byte) ([]byte, error) {
+func (c *fakeFailedClient) KillRaw(killReq []byte, option api.RawRequestOption) ([]byte, error) {
 	return nil, nil
 }
 
@@ -191,6 +191,21 @@ func (c *fakeFailedClient) InvokeByName(request util.InvokeRequest) ([]byte, err
 	}
 	res, _ := json.Marshal(resp)
 	return res, errors.New("runtime initialization timed out after 3s")
+}
+
+func (c *fakeFailedClient) CreateInstance(req *functionsystem.CreateRequest) (*functionsystem.CreateResponse, error) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (c *fakeFailedClient) InvokeInstance(req *functionsystem.InvokeRequest) (*functionsystem.NotifyRequest, error) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (c *fakeFailedClient) Kill(req *functionsystem.KillRequest) (*functionsystem.KillResponse, error) {
+	// TODO implement me
+	panic("implement me")
 }
 
 func (c *fakeFailedClient) CreateInstanceByLibRt(funcMeta api.FunctionMeta, args []api.Arg, invokeOpt api.InvokeOptions) (instanceID string, err error) {
@@ -471,7 +486,7 @@ func TestExtractFunctionKey(t *testing.T) {
 			args: args{
 				ctx: ctx,
 			},
-			want:    "12345678901234561234567890123456/0@yrservice@test-faas-python-runtime-001/",
+			want:    "default/0@yrservice@test-faas-python-runtime-001/",
 			wantErr: false,
 		},
 	}

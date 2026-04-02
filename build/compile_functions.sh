@@ -26,14 +26,7 @@ log_warning() {
 
 function generate_pb() {
     # generate pb files
-    if [ -z "${GOPATH}" ] || [ ! -d "${GOPATH}" ]; then
-        log_error "GOPATH ${GOPATH} not exist!"
-        return 1
-    fi
     cd "${PROJECT_DIR}"/pkg
-    [ -d "${GOPATH}/src/frontend" ] && rm -rf "${GOPATH}/src/frontend"
-    mkdir -p "${GOPATH}"/src/
-    ln -s "${PROJECT_DIR}" "${GOPATH}"/src/frontend
     if ! bash "${PROJECT_DIR}"/build/gen_grpc_pb.sh; then
         log_error "Failed to generate pb files!"
         return 1

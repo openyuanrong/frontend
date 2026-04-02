@@ -70,21 +70,6 @@ func TestCreateAcquireArgs(t *testing.T) {
 	})
 }
 
-func TestCreateQuerySessionArgs(t *testing.T) {
-	Convey("Test createQuerySessionArgs", t, func() {
-		args, err := createQuerySessionArgs("session-1", "trace-123", "test-func")
-		So(err, ShouldBeNil)
-		So(len(args), ShouldEqual, 3)
-		So(string(args[0].Data), ShouldEqual, "querySession#test-func")
-		So(string(args[2].Data), ShouldEqual, "trace-123")
-
-		payload := make(map[string]string)
-		err = json.Unmarshal(args[1].Data, &payload)
-		So(err, ShouldBeNil)
-		So(payload[commonconstant.InstanceSessionConfig], ShouldNotBeBlank)
-	})
-}
-
 func TestCreateBatchRetainArgs(t *testing.T) {
 	Convey("Test createBatchRetainArgs", t, func() {
 		batch := &BatchRetainLeaseInfos{
@@ -153,7 +138,7 @@ func TestDoAcquireInvoke(t *testing.T) {
 		})
 
 		Convey("Should return instance when request success", func() {
-			defer gomonkey.ApplyFunc(prepareSchedulerRequest, func(_ *fasthttp.Request, _ string, _ []*api.Arg, _ string) error {
+			defer gomonkey.ApplyFunc(prepareSchedulerRequest, func(_ *fasthttp.Request, _ string, _ []*api.Arg, _, _ string) error {
 				return nil
 			}).Reset()
 
@@ -168,7 +153,7 @@ func TestDoAcquireInvoke(t *testing.T) {
 		})
 
 		Convey("Should return error when prepare request failed", func() {
-			defer gomonkey.ApplyFunc(prepareSchedulerRequest, func(_ *fasthttp.Request, _ string, _ []*api.Arg, _ string) error {
+			defer gomonkey.ApplyFunc(prepareSchedulerRequest, func(_ *fasthttp.Request, _ string, _ []*api.Arg, _, _ string) error {
 				return errors.New("prepare failed")
 			}).Reset()
 
@@ -177,7 +162,7 @@ func TestDoAcquireInvoke(t *testing.T) {
 		})
 
 		Convey("Should return error when request failed", func() {
-			defer gomonkey.ApplyFunc(prepareSchedulerRequest, func(_ *fasthttp.Request, _ string, _ []*api.Arg, _ string) error {
+			defer gomonkey.ApplyFunc(prepareSchedulerRequest, func(_ *fasthttp.Request, _ string, _ []*api.Arg, _, _ string) error {
 				return nil
 			}).Reset()
 
@@ -187,65 +172,6 @@ func TestDoAcquireInvoke(t *testing.T) {
 
 			_, err := doAcquireInvoke(option, testIP, funcKey, 5)
 			So(err, ShouldNotBeNil)
-		})
-	})
-}
-
-func TestQuerySession(t *testing.T) {
-	Convey("Test QuerySession", t, func() {
-		Convey("Should return resolved instance when scheduler request succeeds", func() {
-			patches := gomonkey.NewPatches()
-			defer patches.Reset()
-
-			patches.ApplyMethodFunc(schedulerproxy.Proxy, "Get", func(_ string, _ api.FormatLogger) (*schedulerproxy.SchedulerNodeInfo, error) {
-				return &schedulerproxy.SchedulerNodeInfo{
-					InstanceInfo: &commontypes.InstanceInfo{
-						Address: "127.0.0.1",
-					},
-				}, nil
-			})
-			patches.ApplyFunc(doQuerySessionInvoke, func(sessionID, ip, funcKey string, timeout int64, traceID string) (*commontypes.InstanceResponse, error) {
-				So(sessionID, ShouldEqual, "session-1")
-				So(ip, ShouldEqual, "127.0.0.1")
-				So(funcKey, ShouldEqual, "test-func")
-				So(traceID, ShouldEqual, "trace-1")
-				return &commontypes.InstanceResponse{
-					InstanceAllocationInfo: commontypes.InstanceAllocationInfo{
-						InstanceID: "instance-1",
-					},
-					ErrorCode: commonconstant.InsReqSuccessCode,
-				}, nil
-			})
-
-			info, err := QuerySession("test-func", "session-1", "trace-1")
-			So(err, ShouldBeNil)
-			So(info, ShouldNotBeNil)
-			So(info.InstanceID, ShouldEqual, "instance-1")
-		})
-
-		Convey("Should return scheduler error when scheduler request reports failure", func() {
-			patches := gomonkey.NewPatches()
-			defer patches.Reset()
-
-			patches.ApplyMethodFunc(schedulerproxy.Proxy, "Get", func(_ string, _ api.FormatLogger) (*schedulerproxy.SchedulerNodeInfo, error) {
-				return &schedulerproxy.SchedulerNodeInfo{
-					InstanceInfo: &commontypes.InstanceInfo{
-						Address: "127.0.0.1",
-					},
-				}, nil
-			})
-			patches.ApplyFunc(doQuerySessionInvoke, func(sessionID, ip, funcKey string, timeout int64, traceID string) (*commontypes.InstanceResponse, error) {
-				return &commontypes.InstanceResponse{
-					ErrorCode:    12345,
-					ErrorMessage: "query failed",
-				}, nil
-			})
-
-			info, err := QuerySession("test-func", "session-1", "trace-1")
-			So(info, ShouldBeNil)
-			So(err, ShouldNotBeNil)
-			So(err.Code(), ShouldEqual, 12345)
-			So(err.Error(), ShouldEqual, "query failed")
 		})
 	})
 }
@@ -373,6 +299,7 @@ func TestPrepareSchedulerRequest(t *testing.T) {
 	req := &fasthttp.Request{}
 	dstHost := "scheduler.example.com"
 	traceID := "abc123-def456"
+	traceParent := "00-123e4567e89b12d3a456426614174000-0123456789abcdef-01"
 	args := []*api.Arg{
 		{TenantID: "tenantID"},
 	}
@@ -387,10 +314,7 @@ func TestPrepareSchedulerRequest(t *testing.T) {
 	}
 	config.SetConfig(testConfig)
 
-	err := prepareSchedulerRequest(req, dstHost, args, traceID)
-	assert.NotNil(t, err)
-
-	err = prepareSchedulerRequest(req, dstHost, args, traceID)
+	err := prepareSchedulerRequest(req, dstHost, args, traceID, traceParent)
 
 	assert.NoError(t, err)
 	assert.Equal(t, callSchedulerPath, string(req.URI().Path()))
@@ -398,6 +322,7 @@ func TestPrepareSchedulerRequest(t *testing.T) {
 	assert.Equal(t, http.MethodPost, string(req.Header.Method()))
 	assert.Equal(t, dstHost, string(req.Host()))
 	assert.Equal(t, traceID, string(req.Header.Peek(commonconstant.HeaderTraceID)))
+	assert.Equal(t, traceParent, string(req.Header.Peek(commonconstant.HeaderTraceParent)))
 	expectedBody, _ := json.Marshal(args)
 	assert.Equal(t, expectedBody, req.Body())
 }
