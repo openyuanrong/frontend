@@ -41,12 +41,26 @@ const (
 	dataSystemStatusExiting = "exiting"
 )
 
-const readinessDuration = 15 * time.Second
+const (
+	timeoutSeconds   = 3 * time.Second
+	failureThreshold = 5
+)
 
 var (
+	// localDataSystemStatusCache 存储本节点数据系统状态
 	localDataSystemStatusCache = &LocalDataSystemStatusCache{}
-	shutdownFlag               = atomic.Bool{}
-	streamEnable               = atomic.Bool{}
+	// shutdownFlag 防止并发触发destroy()动作
+	shutdownFlag = atomic.Bool{}
+	// streamEnable 识别是否是流场景，可开启监听本节点数据系统状态
+	streamEnable = atomic.Bool{}
+	// etcdStatusReady 记录etcd中本节点数据系统状态是否ready，识别升级场景需要重启frontend
+	etcdStatusReady = atomic.Bool{}
+	// healthCheckResult 保存libruntime接口返回的数据系统状态
+	healthCheckResult = atomic.Bool{}
+	// healthCheckOnce 本节点数据系统ready后，启动监听动作，防止重复启动
+	healthCheckOnce sync.Once
+	// readinessFailureThreshold 累计readiness失败次数，保证满足摘流条件
+	readinessFailureThreshold int32
 )
 
 // LocalDataSystemStatusCache 本地数据系统状态缓存结构体
@@ -80,6 +94,13 @@ func (d *LocalDataSystemStatusCache) SetLocalDataSystemStatus(ip, status string)
 		return
 	}
 	log.GetLogger().Infof("save local data system node[%s] status[%s]", ip, status)
+	if status == dataSystemStatusReady {
+		// 首次启动或重启后，数据系统状态可能长时间非ready，需要首次ready后才开启协程检查healthCheck接口的调用，防止造成反复重启
+		healthCheckOnce.Do(func() {
+			etcdStatusReady.Store(true)
+			go dataSystemHealthCheck()
+		})
+	}
 	d.status = status
 }
 
@@ -92,7 +113,22 @@ func (d *LocalDataSystemStatusCache) GetLocalDataSystemStatus() string {
 
 // IsLocalDataSystemStatusReady -
 func IsLocalDataSystemStatusReady() bool {
-	return localDataSystemStatusCache.IsStatusReady()
+	//先判断etcdStatusReady状态,etcd监听到ready之前，健康检查应该是一直非ready的；
+	// 首次ready之后，再遇到非ready之后始终返回false，保证摘流和触发重启
+	if !etcdStatusReady.Load() {
+		atomic.AddInt32(&readinessFailureThreshold, 1)
+		return false
+	}
+	if !localDataSystemStatusCache.IsStatusReady() {
+		etcdStatusReady.Store(false)
+	}
+	if healthCheckResult.Load() {
+		atomic.SwapInt32(&readinessFailureThreshold, 0)
+		return true
+	} else {
+		atomic.AddInt32(&readinessFailureThreshold, 1)
+		return false
+	}
 }
 
 // SetStreamEnable -
@@ -100,32 +136,29 @@ func SetStreamEnable(streamEnableConfig bool) {
 	streamEnable.Store(streamEnableConfig)
 }
 
+// GetStreamEnable -
+func GetStreamEnable() bool {
+	return streamEnable.Load()
+}
+
 func isShutdownFronted() bool {
 	if !streamEnable.Load() {
 		log.GetLogger().Infof("it's not stream scenario, skip shutdown frontend")
 		return false
 	}
-	skipShutdownStatusMap := map[string]struct{}{
-		dataSystemStatusReady:   {},
-		dataSystemStatusStart:   {},
-		dataSystemStatusRestart: {},
-		dataSystemStatusRecover: {},
-		dataSystemStatusDRst:    {},
+	if atomic.LoadInt32(&readinessFailureThreshold) > failureThreshold {
+		log.GetLogger().Infof("readiness has failed %d times, shutdown frontend", failureThreshold)
+		return true
 	}
-	status := localDataSystemStatusCache.GetLocalDataSystemStatus()
-	if _, ok := skipShutdownStatusMap[status]; ok {
-		log.GetLogger().Debugf("status is [%s], skip shutdown frontend", status)
-		return false
-	}
-	return true
+	return false
 }
 
 func destroy() {
-	time.Sleep(readinessDuration)
 	if shutdownFlag.Swap(true) {
 		log.GetLogger().Infof("shutdown frontend has been triggered, skip this operation")
 		return
 	}
+	shutdownFlag.Store(true)
 	defer func() {
 		shutdownFlag.Store(false)
 	}()
@@ -142,4 +175,25 @@ func destroy() {
 		return
 	}
 	log.GetLogger().Infof("send SIGTERM signal to the process success, pid: %d", pid)
+}
+
+func dataSystemHealthCheck() {
+	if !streamEnable.Load() {
+		return
+	}
+	log.GetLogger().Infof("start to check dataSystem health")
+	atomic.SwapInt32(&readinessFailureThreshold, 0)
+	timer := time.NewTimer(timeoutSeconds)
+	defer timer.Stop()
+	for {
+		// 等待定时器触发
+		<-timer.C
+		healthCheckResult.Store(localClientLibruntime.IsDsHealth())
+		if isShutdownFronted() {
+			destroy()
+			return
+		}
+		// 重置定时器以继续下一次循环
+		timer.Reset(timeoutSeconds)
+	}
 }

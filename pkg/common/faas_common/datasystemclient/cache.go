@@ -263,9 +263,6 @@ func processAddEvent(event *etcd3.Event, logger api.FormatLogger) error {
 		cache.deleteNode(ip, logger)
 		clientMap.deleteNodeIp(ip, logger)
 		logger.Warnf("but node is not ready, don't add")
-		if isShutdownFronted() {
-			destroy()
-		}
 		return nil
 	}
 
@@ -295,9 +292,6 @@ func processDeleteEvent(event *etcd3.Event, logger api.FormatLogger) error {
 		dataSystemCache.Delete(az)
 	}
 	clientMap.deleteNodeIp(ip, logger)
-	if isShutdownFronted() {
-		destroy()
-	}
 	return nil
 }
 

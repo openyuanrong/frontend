@@ -300,7 +300,7 @@ func Test_functionInvokeForKernel(t *testing.T) {
 			InvokeTimeout: 10,
 			RespHeader:    make(map[string]string),
 		}
-		funcSpec := &types.FuncSpec{}
+		funcSpec := &types.FuncSpec{InstanceMetaData: types.InstanceMetaData{MaxInstance: 5}}
 		funcSpec.ResourceMetaData.CPU = 500
 		funcSpec.ResourceMetaData.Memory = 500
 
@@ -313,7 +313,9 @@ func Test_functionInvokeForKernel(t *testing.T) {
 			pendingReq.ResultChan <- &wisecloud.PendingResponse{Instance: nil}
 		}).Reset()
 
-		err := newKernelRequestHandler(ctx, funcSpec).invoke()
+		handler := newKernelRequestHandler(ctx, funcSpec)
+		handler.downgrade = true
+		err := handler.invoke()
 		convey.So(strings.Contains(err.Error(), "no available instance, no available scheduler"), convey.ShouldBeTrue)
 
 		mockSchedulerProxyAdd("0")
@@ -348,7 +350,7 @@ func Test_functionInvokeForKernel_legacy(t *testing.T) {
 			InvokeTimeout: 10,
 			RespHeader:    make(map[string]string),
 		}
-		funcSpec := &types.FuncSpec{}
+		funcSpec := &types.FuncSpec{InstanceMetaData: types.InstanceMetaData{MaxInstance: 5}}
 		funcSpec.ResourceMetaData.CPU = 500
 		funcSpec.ResourceMetaData.Memory = 500
 
@@ -403,7 +405,7 @@ func Test_functionInvokeForKernel_retry(t *testing.T) {
 		ctx := &types2.InvokeProcessContext{
 			InvokeTimeout: 10,
 		}
-		funcSpec := &types.FuncSpec{}
+		funcSpec := &types.FuncSpec{InstanceMetaData: types.InstanceMetaData{MaxInstance: 5}}
 		funcSpec.ResourceMetaData.CPU = 500
 		funcSpec.ResourceMetaData.Memory = 500
 		funcSpec.FunctionKey = "8d86c63b22e24d9ab650878b75408ea6/0@default@func6ac6741a01334320809dfb7dc1e98049/latest"
