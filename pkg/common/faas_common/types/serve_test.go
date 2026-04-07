@@ -33,19 +33,19 @@ func TestServeFunctionKeyTrans(t *testing.T) {
 		})
 		convey.Convey("When trans to a func meta key", func() {
 			convey.So(k.ToFuncMetaKey(), convey.ShouldEqual,
-				"/sn/functions/business/yrk/tenant/12345678901234561234567890123456/function/0@svc@func/version/latest")
+				"/sn/functions/business/yrk/tenant/default/function/0@svc@func/version/latest")
 		})
 		convey.Convey("When trans to a instance meta key", func() {
 			convey.So(k.ToInstancesMetaKey(), convey.ShouldEqual,
-				"/instances/business/yrk/cluster/cluster001/tenant/12345678901234561234567890123456/function/0@svc@func/version/latest")
+				"/instances/business/yrk/cluster/cluster001/tenant/default/function/0@svc@func/version/latest")
 		})
 		convey.Convey("When trans to a FaasFunctionUrn", func() {
 			convey.So(k.ToFaasFunctionUrn(), convey.ShouldEqual,
-				"sn:cn:yrk:12345678901234561234567890123456:function:0@svc@func")
+				"sn:cn:yrk:default:function:0@svc@func")
 		})
 		convey.Convey("When trans ToFaasFunctionVersionUrn", func() {
 			convey.So(k.ToFaasFunctionVersionUrn(), convey.ShouldEqual,
-				"sn:cn:yrk:12345678901234561234567890123456:function:0@svc@func:latest")
+				"sn:cn:yrk:default:function:0@svc@func:latest")
 		})
 	})
 }
@@ -121,16 +121,16 @@ func TestServeFunctionKey(t *testing.T) {
 				"0@svc@func")
 			convey.So(sfk.ToFuncMetaKey(),
 				convey.ShouldEqual,
-				"/sn/functions/business/yrk/tenant/12345678901234561234567890123456/function/0@svc@func/version/latest")
+				"/sn/functions/business/yrk/tenant/default/function/0@svc@func/version/latest")
 			convey.So(sfk.ToInstancesMetaKey(),
 				convey.ShouldEqual,
-				"/instances/business/yrk/cluster/cluster001/tenant/12345678901234561234567890123456/function/0@svc@func/version/latest")
+				"/instances/business/yrk/cluster/cluster001/tenant/default/function/0@svc@func/version/latest")
 			convey.So(sfk.ToFaasFunctionUrn(),
 				convey.ShouldEqual,
-				"sn:cn:yrk:12345678901234561234567890123456:function:0@svc@func")
+				"sn:cn:yrk:default:function:0@svc@func")
 			convey.So(sfk.ToFaasFunctionVersionUrn(),
 				convey.ShouldEqual,
-				"sn:cn:yrk:12345678901234561234567890123456:function:0@svc@func:latest")
+				"sn:cn:yrk:default:function:0@svc@func:latest")
 		})
 
 		convey.Convey("It should return incorrect faas function metas", func() {

@@ -990,6 +990,10 @@ func (f *invokerLibruntimeMock) GDecreaseRef(objectIDs []string, remoteClientID 
 	return []string{}, nil
 }
 
+func (f *invokerLibruntimeMock) ReleaseGRefs(remoteClientID string) error {
+	return nil
+}
+
 func (f *invokerLibruntimeMock) GetAsync(objectID string, cb api.GetAsyncCallback) {
 	return
 }

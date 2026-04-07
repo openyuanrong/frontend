@@ -100,6 +100,9 @@ func TestContainPassPhase(t *testing.T) {
 			convey.So(content, convey.ShouldBeNil)
 		})
 		convey.Convey("Decrypt error", func() {
+			defer gomonkey.ApplyFunc(pem.Decode, func(data []byte) (p *pem.Block, rest []byte) {
+				return nil, nil
+			}).Reset()
 			keyContent := pem.EncodeToMemory(&pem.Block{
 				Type:    "MESSAGE",
 				Headers: map[string]string{"DEK-Info": "test"},
