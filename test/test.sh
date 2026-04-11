@@ -19,8 +19,16 @@ CUR_DIR=$(dirname "$(readlink -f "$0")")
 PROJECT_DIR=$(cd "${CUR_DIR}/.."; pwd)
 ROOT_PATH=$PROJECT_DIR
 
+# go module prepare
+export GO111MODULE=on
+export GONOSUMDB=*
+export CGO_ENABLED=1
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install github.com/axw/gocov/gocov@latest
+go install github.com/matm/gocov-html/cmd/gocov-html@latest
+
 # resolve missing go.sum entry
-go mod tidy
 go env -w "GOFLAGS"="-mod=mod"
 
 # coverage mode
@@ -29,42 +37,44 @@ go env -w "GOFLAGS"="-mod=mod"
 # atomic: 类似于count, 但表示的是并行程序中的精确计数
 export GOCOVER_MODE="set"
 
+# protoc
+echo "generating fs proto pb objects"
+. "${PROJECT_DIR}/build/compile_functions.sh"
+
 # test module name
 MODULE_LIST=(\
 "common" \
 "faasfrontend"
 )
 
-. "${ROOT_PATH}"/build/compile_functions.sh
+TARGET_MODULE=$1
 
-# $1: source file name, In the format of xxx.go
-# $2: target file name, In the format of xxx_mock.go
-function generate_mock()
-{
-    if ! mockgen -destination "$2" -source "$1" -package mock; then
-        log_error "Failed to generate mock file."
-        return 1;
+if [ -z "$TARGET_MODULE" ]; then
+    for module in "${MODULE_LIST[@]}"; do
+        if ! sh -x "${CUR_DIR}/${module}/test.sh"; then
+            echo "Failed to test ${module}"
+            exit 1
+        fi
+        echo "Succeed to test ${module}"
+    done
+else
+    found=0
+    for module in "${MODULE_LIST[@]}"; do
+        if [ "$module" = "$TARGET_MODULE" ]; then
+            found=1
+            if ! sh -x "${CUR_DIR}/${module}/test.sh"; then
+                echo "Failed to test ${module}"
+                exit 1
+            fi
+            echo "Succeed to test ${module}"
+            break
+        fi
+    done
+    if [ $found -eq 0 ]; then
+        echo "Error: Module '$TARGET_MODULE' not found in MODULE_LIST"
+        echo "Available modules: ${MODULE_LIST[*]}"
+        exit 1
     fi
-}
-export -f generate_mock
-
-# create source code link, go cover report dependent on GOPATH src
-link_source_code()
-{
-    rm -rf "${GOPATH}/pkg"
-    rm -rf "${GOPATH}/src/frontend"
-
-    mkdir -p "${GOPATH}"/src/
-    ln -s "${ROOT_PATH}" "${GOPATH}"/src/frontend
-}
-
-link_source_code
-
-
-if ! sh -x "${CUR_DIR}/${MODULE_LIST[$i]}/test.sh"; then
-    echo "Failed to test ${MODULE_LIST[$i]}"
-    exit 1
 fi
-echo "Succeed to test ${MODULE_LIST[$i]}"
 
 exit 0

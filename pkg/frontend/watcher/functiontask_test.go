@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"frontend/pkg/common/faas_common/etcd3"
+
 	"github.com/agiledragon/gomonkey/v2"
 
 	"github.com/smartystreets/goconvey/convey"
@@ -108,6 +109,9 @@ func TestStartWatchFunctionProxy(t *testing.T) {
 	convey.Convey("StartWatch", t, func() {
 		patches := []*gomonkey.Patches{
 			gomonkey.ApplyMethod(reflect.TypeOf(&etcd3.EtcdWatcher{}), "StartWatch", func(ew *etcd3.EtcdWatcher) {
+			}),
+			gomonkey.ApplyMethod(reflect.TypeOf(&etcd3.EtcdClient{}), "AttachAZPrefix", func(ew *etcd3.EtcdClient, key string) string {
+				return key
 			}),
 		}
 		defer func() {

@@ -29,7 +29,6 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/smartystreets/goconvey/convey"
-	"yuanrong.org/kernel/runtime/libruntime/api"
 
 	"frontend/pkg/common/faas_common/constant"
 	mockUtils "frontend/pkg/common/faas_common/utils"

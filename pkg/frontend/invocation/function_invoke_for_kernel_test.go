@@ -252,6 +252,10 @@ func (f *fakeClient) IsDsHealth() bool {
 	return true
 }
 
+func (f *fakeClient) GetActiveMasterAddr() string {
+	return "127.0.0.1:1111"
+}
+
 func Test_invokeByClient(t *testing.T) {
 	convey.Convey("Test_invokeByClient", t, func() {
 		c := &fakeClient{}

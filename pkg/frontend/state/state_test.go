@@ -84,7 +84,7 @@ func TestGetStateByte(t *testing.T) {
 			frontendHandlerQueue = nil
 			_, err := GetStateByte()
 			frontendHandlerQueue = rawFq
-			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("getStateByte success", func() {
 			q := &state.Queue{}

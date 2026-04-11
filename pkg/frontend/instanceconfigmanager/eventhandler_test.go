@@ -78,11 +78,11 @@ func TestProcessUpdate(t *testing.T) {
 
 		// Execute test
 		ProcessUpdate(&etcd3.Event{
-			Key:   "/instances/business/yrk/cluster/cluster001/tenant/12345678901234561234567890123456/function/0@test111@yrfunc111/version/latest",
+			Key:   "/instances/business/yrk/cluster/cluster001/tenant/default/function/0@test111@yrfunc111/version/latest",
 			Value: []byte("{\"instanceMetaData\":{\"maxInstance\":100,\"minInstance\":1,\"concurrentNum\":100,\"instanceType\":\"\",\"idleMode\":false,\"poolLabel\":\"\",\"poolId\":\"\"}}"),
 		}, log.GetLogger())
 		ProcessUpdate(&etcd3.Event{
-			Key:   "/instances/business/yrk/cluster/cluster001/tenant/12345678901234561234567890123456/function/0@test111@yrfunc111/version/latest/label/aaa",
+			Key:   "/instances/business/yrk/cluster/cluster001/tenant/default/function/0@test111@yrfunc111/version/latest/label/aaa",
 			Value: []byte("{\"instanceMetaData\":{\"maxInstance\":100,\"minInstance\":1,\"concurrentNum\":100,\"instanceType\":\"\",\"idleMode\":false,\"poolLabel\":\"\",\"poolId\":\"\"}}"),
 		}, log.GetLogger())
 
@@ -97,11 +97,11 @@ func TestProcessUpdate(t *testing.T) {
 	t.Run("Config parse failure", func(t *testing.T) {
 		manager.instanceConfigMaps = make(map[string]map[string]*instanceconfig.Configuration)
 		ProcessUpdate(&etcd3.Event{
-			Key:   "/instances/business/yrk/cluster/cluster001/tenant/12345678901234561234567890123456/function/0@test111@yrfunc111/version/latest/label",
+			Key:   "/instances/business/yrk/cluster/cluster001/tenant/default/function/0@test111@yrfunc111/version/latest/label",
 			Value: []byte("{\"instanceMetaData\":{\"maxInstance\":100,\"minInstance\":1,\"concurrentNum\":100,\"instanceType\":\"\",\"idleMode\":false,\"poolLabel\":\"\",\"poolId\":\"\"}}"),
 		}, log.GetLogger())
 		ProcessUpdate(&etcd3.Event{
-			Key:   "/instances/business/yrk/cluster/cluster001/tenant/12345678901234561234567890123456/function/0@test111@yrfunc111/version",
+			Key:   "/instances/business/yrk/cluster/cluster001/tenant/default/function/0@test111@yrfunc111/version",
 			Value: []byte("{\"instanceMetaData\":{\"maxInstance\":100,\"minInstance\":1,\"concurrentNum\":100,\"instanceType\":\"\",\"idleMode\":false,\"poolLabel\":\"\",\"poolId\":\"\"}}"),
 		}, log.GetLogger())
 
@@ -141,7 +141,7 @@ func TestProcessDelete(t *testing.T) {
 
 		// Execute test
 		ProcessDelete(&etcd3.Event{
-			Key:       "/instances/business/yrk/cluster/cluster001/tenant/12345678901234561234567890123456/function/0@test111@yrfunc111/version/latest/label/aaa",
+			Key:       "/instances/business/yrk/cluster/cluster001/tenant/default/function/0@test111@yrfunc111/version/latest/label/aaa",
 			Value:     []byte("{\"instanceMetaData\":{\"maxInstance\":100,\"minInstance\":1,\"concurrentNum\":100,\"instanceType\":\"\",\"idleMode\":false,\"poolLabel\":\"\",\"poolId\":\"\"}}"),
 			PrevValue: []byte("{\"instanceMetaData\":{\"maxInstance\":100,\"minInstance\":1,\"concurrentNum\":100,\"instanceType\":\"\",\"idleMode\":false,\"poolLabel\":\"\",\"poolId\":\"\"}}"),
 		}, log.GetLogger())

@@ -48,22 +48,22 @@ func TestInvokeHandlerWithJWTMiddleware(t *testing.T) {
 		authHeader         string
 		mockParseJWT       func() (*jwtauth.ParsedJWT, error)
 		mockValidateIAM    func(string, string) error
-		requestBody        map[string]interface{}
+		requestBody        map[string]string
 		expectedStatusCode int
 	}{
 		{
-			name:         "invoke without JWT when auth disabled",
-			enableAuth:   false,
-			authHeader:   "",
-			requestBody:  map[string]string{"test": "data"},
+			name:               "invoke without JWT when auth disabled",
+			enableAuth:         false,
+			authHeader:         "",
+			requestBody:        map[string]string{"test": "data"},
 			expectedStatusCode: http.StatusOK,
 		},
 		{
-			name:         "invoke without JWT when auth enabled (optional auth)",
-			enableAuth:   true,
-			authHeader:   "",
-			requestBody:  map[string]string{"test": "data"},
-			expectedStatusCode: http.StatusOK,
+			name:               "invoke without JWT when auth enabled (optional auth)",
+			enableAuth:         true,
+			authHeader:         "",
+			requestBody:        map[string]string{"test": "data"},
+			expectedStatusCode: http.StatusUnauthorized,
 		},
 		{
 			name:       "invoke with invalid JWT",
@@ -180,7 +180,7 @@ func TestMultipleEndpointsWithJWTMiddleware(t *testing.T) {
 
 	// Setup router
 	router := gin.New()
-	
+
 	// Endpoints without JWT middleware (like urlPreCreate)
 	router.POST("/create", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "created"})
@@ -217,7 +217,7 @@ func TestMultipleEndpointsWithJWTMiddleware(t *testing.T) {
 			endpoint:           "/invoke",
 			authHeader:         "",
 			enableAuth:         true,
-			expectedStatusCode: http.StatusOK,
+			expectedStatusCode: http.StatusUnauthorized,
 		},
 	}
 

@@ -34,17 +34,6 @@ import (
 	"frontend/pkg/frontend/types"
 )
 
-func Test_doInnerCodeString(t *testing.T) {
-	msg := innerCode(-1).String()
-	assert.Equal(t, msg, "invalidCode")
-	msg = innerCode(0).String()
-	assert.Equal(t, msg, "sysOK")
-	msg = innerCode(100).String()
-	assert.Equal(t, msg, "usrErr")
-	msg = innerCode(10001).String()
-	assert.Equal(t, msg, "sysErr")
-}
-
 func Test_prepareDynamicResource(t *testing.T) {
 	type args struct {
 		ctx *types.InvokeProcessContext

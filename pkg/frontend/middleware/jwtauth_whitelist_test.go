@@ -283,8 +283,8 @@ func TestGlobalJWTAuthMiddleware(t *testing.T) {
 			method:             "POST",
 			enableAuth:         true,
 			authHeader:         "",
-			expectedStatusCode: http.StatusOK,
-			shouldCallNext:     true,
+			expectedStatusCode: http.StatusUnauthorized,
+			shouldCallNext:     false,
 		},
 		{
 			name:               "terminal path now requires auth",
@@ -312,8 +312,8 @@ func TestGlobalJWTAuthMiddleware(t *testing.T) {
 			mockValidateIAM: func(token, traceID string) error {
 				return nil
 			},
-			expectedStatusCode: http.StatusOK,
-			shouldCallNext:     true,
+			expectedStatusCode: http.StatusUnauthorized,
+			shouldCallNext:     false,
 		},
 		{
 			name:       "invoke URL with RoleDeveloper should be allowed",
@@ -352,8 +352,8 @@ func TestGlobalJWTAuthMiddleware(t *testing.T) {
 			mockValidateIAM: func(token, traceID string) error {
 				return nil
 			},
-			expectedStatusCode: http.StatusOK,
-			shouldCallNext:     true,
+			expectedStatusCode: http.StatusUnauthorized,
+			shouldCallNext:     false,
 		},
 		{
 			name:       "non-invoke URL with RoleUser should be rejected",

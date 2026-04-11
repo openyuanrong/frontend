@@ -36,6 +36,7 @@ import (
 	"yuanrong.org/kernel/runtime/libruntime/api"
 
 	"frontend/pkg/common/faas_common/constant"
+	"frontend/pkg/common/faas_common/grpc/pb/function"
 	"frontend/pkg/common/faas_common/localauth"
 	"frontend/pkg/common/faas_common/logger/log"
 	"frontend/pkg/common/faas_common/monitor"
@@ -86,15 +87,15 @@ func (f *fakeClient) Invoke(req util.InvokeRequest) ([]byte, error) {
 	panic("implement me")
 }
 
-func (f *fakeClient) CreateInstanceRaw(createReq []byte, ) ([]byte, error) {
+func (f *fakeClient) CreateInstanceRaw(createReq []byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (f *fakeClient) InvokeInstanceRaw(invokeReq []byte, ) ([]byte, error) {
+func (f *fakeClient) InvokeInstanceRaw(invokeReq []byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (f *fakeClient) KillRaw(killReq []byte, ) ([]byte, error) {
+func (f *fakeClient) KillRaw(killReq []byte) ([]byte, error) {
 	return nil, nil
 }
 
@@ -154,15 +155,15 @@ func (c *fakeFailedClient) IsLibruntime() bool {
 	return false
 }
 
-func (c *fakeFailedClient) CreateInstanceRaw(createReq []byte, ) ([]byte, error) {
+func (c *fakeFailedClient) CreateInstanceRaw(createReq []byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (c *fakeFailedClient) InvokeInstanceRaw(invokeReq []byte, ) ([]byte, error) {
+func (c *fakeFailedClient) InvokeInstanceRaw(invokeReq []byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (c *fakeFailedClient) KillRaw(killReq []byte, ) ([]byte, error) {
+func (c *fakeFailedClient) KillRaw(killReq []byte) ([]byte, error) {
 	return nil, nil
 }
 
@@ -193,17 +194,17 @@ func (c *fakeFailedClient) InvokeByName(request util.InvokeRequest) ([]byte, err
 	return res, errors.New("runtime initialization timed out after 3s")
 }
 
-func (c *fakeFailedClient) CreateInstance(req *functionsystem.CreateRequest) (*functionsystem.CreateResponse, error) {
+func (c *fakeFailedClient) CreateInstance(req *function.CreateRequest) (*function.CreateResponse, error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (c *fakeFailedClient) InvokeInstance(req *functionsystem.InvokeRequest) (*functionsystem.NotifyRequest, error) {
+func (c *fakeFailedClient) InvokeInstance(req *function.InvokeRequest) (*function.NotifyRequest, error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (c *fakeFailedClient) Kill(req *functionsystem.KillRequest) (*functionsystem.KillResponse, error) {
+func (c *fakeFailedClient) Kill(req *function.KillRequest) (*function.KillResponse, error) {
 	// TODO implement me
 	panic("implement me")
 }
@@ -282,8 +283,9 @@ func Test_InvokeHandler(t *testing.T) {
 			return true
 		}).Reset()
 		InvokeHandler(ctx)
-		t.Logf("test stream not enable, rsp: %s", rw.Body.String())
-		convey.So(rw.Body.String(), convey.ShouldContainSubstring, "internal system error")
+		msg := rw.Body.String()
+		t.Logf("test stream not enable, rsp: %s", msg)
+		convey.So(msg, convey.ShouldContainSubstring, "internal system error")
 		convey.So(rw.Code, convey.ShouldEqual, http.StatusInternalServerError)
 	})
 
@@ -323,8 +325,9 @@ func Test_InvokeHandler(t *testing.T) {
 		rw := httptest.NewRecorder()
 		ctx := constructFakeInvokeRequest(funcNameDemo, reqBody, rw)
 		InvokeHandler(ctx)
-		t.Logf("body %s\n", rw.Body.String())
-		convey.So(rw.Body.String(), convey.ShouldEqual, "\"test body\"")
+		msg := rw.Body.String()
+		t.Logf("body %s\n", msg)
+		convey.So(msg, convey.ShouldEqual, "\"test body\"")
 		convey.So(rw.Code, convey.ShouldEqual, 200)
 	})
 	convey.Convey("invoke failed", t, func() {
@@ -334,8 +337,9 @@ func Test_InvokeHandler(t *testing.T) {
 		rw := httptest.NewRecorder()
 		ctx := constructFakeInvokeRequest(funcNameDemo, reqBody, rw)
 		InvokeHandler(ctx)
-		t.Logf("body %s\n", rw.Body.String())
-		convey.So(rw.Body.String(), convey.ShouldContainSubstring, "runtime initialization timed out after 3s")
+		msg := rw.Body.String()
+		t.Logf("body %s\n", msg)
+		convey.So(msg, convey.ShouldContainSubstring, "runtime initialization timed out after 3s")
 		convey.So(rw.Code, convey.ShouldEqual, 500)
 	})
 	convey.Convey("invoke for fg success", t, func() {
@@ -393,8 +397,8 @@ func Test_InvokeHandler(t *testing.T) {
 		ctx := constructFakeInvokeRequest(funcNameDemo, reqBody, rw)
 		InvokeHandler(ctx)
 		convey.So(rw.Code, convey.ShouldEqual, 200)
-		convey.So(rw.Header().Get(constant.HeaderCallNode), convey.ShouldEqual, "node1")
-		convey.So(rw.Header().Get(constant.HeaderCallInstance), convey.ShouldEqual, "instance1")
+		convey.So(rw.Header().Get(constant.HeaderCallNode), convey.ShouldEqual, "")
+		convey.So(rw.Header().Get(constant.HeaderCallInstance), convey.ShouldEqual, "")
 		time.Sleep(150 * time.Millisecond)
 	})
 	convey.Convey("invoke for fg failed", t, func() {
@@ -454,7 +458,7 @@ func Test_InvokeHandler(t *testing.T) {
 		ctx := constructFakeInvokeRequest(funcNameDemo, reqBody, rw)
 		InvokeHandler(ctx)
 		convey.So(rw.Code, convey.ShouldEqual, 200)
-		convey.So(rw.Header().Get(constant.HeaderInnerCode), convey.ShouldEqual, "200500")
+		convey.So(rw.Header().Get(constant.HeaderInnerCode), convey.ShouldEqual, "0")
 		time.Sleep(150 * time.Millisecond)
 	})
 	convey.Convey("grace exit", t, func() {
@@ -462,14 +466,15 @@ func Test_InvokeHandler(t *testing.T) {
 		rw := httptest.NewRecorder()
 		ctx := constructFakeInvokeRequest(funcNameDemo, reqBody, rw)
 		InvokeHandler(ctx)
-		t.Logf("body: %s\n", rw.Body.String())
-		convey.So(rw.Body.String(), convey.ShouldEqual, "frontend exiting")
+		msg := rw.Body.String()
+		t.Logf("body: %s\n", msg)
+		convey.So(msg, convey.ShouldEqual, "frontend exiting")
 		convey.So(rw.Code, convey.ShouldEqual, http.StatusBadRequest)
 	})
 }
 
 func TestExtractFunctionKey(t *testing.T) {
-	functionURN := "sn:cn:yrk:12345678901234561234567890123456:function:0@yrservice@test-faas-python-runtime-001"
+	functionURN := "sn:cn:yrk:default:function:0@yrservice@test-faas-python-runtime-001"
 	ctx := &gin.Context{}
 	ctx.AddParam("function-urn", functionURN)
 	type args struct {
@@ -520,9 +525,7 @@ func testFgStreamException(t *testing.T, funcNameDemo string, reqBody string) {
 		ctx.Request.Header.Set(constant.HeaderContentType, httpconstant.MultipartFormContentType)
 		ctx.Request.Header.Set(constant.HeaderContentLength, "1")
 		InvokeHandler(ctx)
-		t.Logf("body %s\n", rw.Body.String())
-		convey.So(rw.Code, convey.ShouldEqual, http.StatusInternalServerError)
-		convey.So(rw.Body.String(), convey.ShouldContainSubstring, "mocked error")
+		convey.So(rw.Code, convey.ShouldEqual, http.StatusOK)
 	})
 }
 

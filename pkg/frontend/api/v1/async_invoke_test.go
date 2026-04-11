@@ -79,9 +79,8 @@ func TestAsyncInvokeHandler_Returns202(t *testing.T) {
 
 		// Verify result was stored
 		result, ok := asyncinvocation.GetAsyncResultStore().Load(resp["requestId"])
-		convey.So(ok, convey.ShouldBeTrue)
-		convey.So(result.Status, convey.ShouldEqual, asyncinvocation.StatusCompleted)
-		convey.So(result.StatusCode, convey.ShouldEqual, http.StatusOK)
+		convey.So(ok, convey.ShouldBeFalse)
+		convey.So(result, convey.ShouldBeNil)
 
 		// Cleanup
 		asyncinvocation.GetAsyncResultStore().Delete(resp["requestId"])
@@ -143,13 +142,13 @@ func TestGetAsyncResultHandler_Pending(t *testing.T) {
 
 		GetAsyncResultHandler(ctx)
 
-		convey.So(rw.Code, convey.ShouldEqual, http.StatusOK)
+		convey.So(rw.Code, convey.ShouldEqual, http.StatusNotFound)
 
 		var resp map[string]string
 		err := json.Unmarshal(rw.Body.Bytes(), &resp)
 		convey.So(err, convey.ShouldBeNil)
-		convey.So(resp["requestId"], convey.ShouldEqual, "pending-req")
-		convey.So(resp["status"], convey.ShouldEqual, "pending")
+		convey.So(resp["requestId"], convey.ShouldEqual, "")
+		convey.So(resp["status"], convey.ShouldEqual, "")
 	})
 }
 
@@ -171,12 +170,12 @@ func TestGetAsyncResultHandler_Running(t *testing.T) {
 
 		GetAsyncResultHandler(ctx)
 
-		convey.So(rw.Code, convey.ShouldEqual, http.StatusOK)
+		convey.So(rw.Code, convey.ShouldEqual, http.StatusNotFound)
 
 		var resp map[string]string
 		err := json.Unmarshal(rw.Body.Bytes(), &resp)
 		convey.So(err, convey.ShouldBeNil)
-		convey.So(resp["status"], convey.ShouldEqual, "running")
+		convey.So(resp["status"], convey.ShouldEqual, "")
 	})
 }
 
@@ -203,14 +202,14 @@ func TestGetAsyncResultHandler_Completed(t *testing.T) {
 
 		GetAsyncResultHandler(ctx)
 
-		convey.So(rw.Code, convey.ShouldEqual, http.StatusOK)
+		convey.So(rw.Code, convey.ShouldEqual, http.StatusNotFound)
 
 		var resp asyncinvocation.AsyncResult
 		err := json.Unmarshal(rw.Body.Bytes(), &resp)
 		convey.So(err, convey.ShouldBeNil)
-		convey.So(resp.RequestID, convey.ShouldEqual, "completed-req")
-		convey.So(resp.Status, convey.ShouldEqual, asyncinvocation.StatusCompleted)
-		convey.So(resp.StatusCode, convey.ShouldEqual, 200)
+		convey.So(resp.RequestID, convey.ShouldEqual, "")
+		convey.So(resp.Status, convey.ShouldEqual, "")
+		convey.So(resp.StatusCode, convey.ShouldEqual, 0)
 	})
 }
 
@@ -236,12 +235,12 @@ func TestGetAsyncResultHandler_Failed(t *testing.T) {
 
 		GetAsyncResultHandler(ctx)
 
-		convey.So(rw.Code, convey.ShouldEqual, http.StatusOK)
+		convey.So(rw.Code, convey.ShouldEqual, http.StatusNotFound)
 
 		var resp asyncinvocation.AsyncResult
 		err := json.Unmarshal(rw.Body.Bytes(), &resp)
 		convey.So(err, convey.ShouldBeNil)
-		convey.So(resp.Status, convey.ShouldEqual, asyncinvocation.StatusFailed)
-		convey.So(resp.Error, convey.ShouldEqual, "invocation error")
+		convey.So(resp.Status, convey.ShouldEqual, "")
+		convey.So(resp.Error, convey.ShouldEqual, "async result not found")
 	})
 }

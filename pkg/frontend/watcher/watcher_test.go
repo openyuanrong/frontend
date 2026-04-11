@@ -37,6 +37,7 @@ func TestStartWatch(t *testing.T) {
 			gomonkey.ApplyFunc(startWatchTenantQOS, func(stopCh <-chan struct{}) {}),
 			gomonkey.ApplyFunc(startWatchInstanceInfo, func(stopCh <-chan struct{}) {}),
 			gomonkey.ApplyFunc(startWatchInstanceConfig, func(stopCh <-chan struct{}) {}),
+			gomonkey.ApplyFunc(startWatchFunctionProxy, func(stopCh <-chan struct{}) {}),
 		}
 		defer func() {
 			for _, patch := range patches {

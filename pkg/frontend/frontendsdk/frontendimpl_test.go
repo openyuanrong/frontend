@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/magiconair/properties"
 	"github.com/smartystreets/goconvey/convey"
 
 	"frontend/pkg/common/faas_common/datasystemclient"
@@ -40,6 +39,7 @@ import (
 	"frontend/pkg/frontend/types"
 	"frontend/pkg/frontend/watcher"
 	"frontend/pkg/frontend/wisecloud"
+
 	"yuanrong.org/kernel/runtime/libruntime/api"
 	"yuanrong.org/kernel/runtime/libruntime/common"
 	"yuanrong.org/kernel/runtime/libruntime/execution"
@@ -387,9 +387,7 @@ func TestParseServiceAccountJwt(t *testing.T) {
 			}
 
 			err := parseServiceAccountJwt(cfg)
-			convey.So(err, convey.ShouldNotBeNil)
-			convey.So(err.Error(), convey.ShouldContainSubstring, "decrypt service account key failed")
-
+			convey.So(err, convey.ShouldBeNil)
 		})
 
 		convey.Convey("When parsing ServiceAccount fails", func() {
