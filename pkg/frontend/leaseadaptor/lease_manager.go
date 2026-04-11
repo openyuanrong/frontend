@@ -101,6 +101,10 @@ func (im *Manager) ClearFuncLeasePools(funcKey string) {
 // AcquireInstance -
 func (im *Manager) AcquireInstance(ctx *types.InvokeProcessContext, funcSpec *commontypes.FuncSpec,
 	logger api.FormatLogger) (*commontypes.InstanceAllocationInfo, snerror.SNError) {
+	if funcSpec.InstanceMetaData.MaxInstance == 0 {
+		return nil, snerror.New(statuscode.ReachMaxInstancesCode, fmt.Sprintf("%s,%d",
+			statuscode.ReachMaxInstancesErrMsg, funcSpec.InstanceMetaData.MaxInstance))
+	}
 	im.Lock()
 	funcKeyLeasePools, ok := im.globalFuncKeyLeasePools[ctx.FuncKey]
 	if !ok {
