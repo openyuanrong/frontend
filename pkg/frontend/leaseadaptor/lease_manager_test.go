@@ -451,6 +451,7 @@ func TestFuncKeyLeasePools_DoBatchRetain(t *testing.T) {
 			InstanceName: "scheduler-1",
 			Address:      "127.0.0.1",
 		}}, log.GetLogger())
+		defer schedulerproxy.Proxy.Remove(&commType.InstanceInfo{InstanceName: "scheduler-1"}, log.GetLogger())
 
 		defer gomonkey.ApplyMethod(reflect.TypeOf(&schedulerproxy.ProxyManager{}),
 			"GetSchedulerByInstanceId",
@@ -600,6 +601,7 @@ func Test_AcquireRepeatedLease(t *testing.T) {
 			InstanceID:   "test-scheduler-instance-id",
 			Address:      "127.0.0.1",
 		}}, log.GetLogger())
+		defer schedulerproxy.Proxy.Remove(&commType.InstanceInfo{InstanceName: "test-schedulerID"}, log.GetLogger())
 		resp := &commType.InstanceResponse{
 			InstanceAllocationInfo: commType.InstanceAllocationInfo{ThreadID: "lease1-1",
 				InstanceID: "lease1", LeaseInterval: 0},
